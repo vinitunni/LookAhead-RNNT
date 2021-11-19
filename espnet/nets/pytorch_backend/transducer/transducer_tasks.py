@@ -45,6 +45,8 @@ class TransducerTasks(torch.nn.Module):
         IAM_loss: bool = False,
         ILM_loss_weight: float = 0.125,
         IAM_loss_weight: float = 0.125,
+        eta_mixing: bool = False,
+        eta_mixing_type: str = "linear",
     ):
         """Initialize module for Transducer tasks.
 
@@ -71,6 +73,12 @@ class TransducerTasks(torch.nn.Module):
             blank_id: Blank symbol ID.
             ignore_id: Padding symbol ID.
             training: Whether the model was initializated in training or inference mode.
+            ILM_loss: Whether to train for implicit LM loss
+            IAM_loss: Whether to train for implicit AM loss
+            ILM_loss_weight: Weight of implicit LM loss
+            IAM_loss_weight: Weight of implicit AM loss
+            eta_mixing: Whether joint op should be done by using eta_mixing
+            eta_mixing_type: Type of eta_mixing to be implemented
 
         """
         super().__init__()
@@ -84,7 +92,7 @@ class TransducerTasks(torch.nn.Module):
             )
 
         self.joint_network = JointNetwork(
-            output_dim, encoder_dim, decoder_dim, joint_dim, joint_activation_type
+            output_dim, encoder_dim, decoder_dim, joint_dim, joint_activation_type, eta_mixing, eta_mixing_type
         )
 
         if training:
@@ -149,6 +157,8 @@ class TransducerTasks(torch.nn.Module):
         self.IAM_loss = IAM_loss
         self.ILM_loss_weight = ILM_loss_weight
         self.IAM_loss_weight = IAM_loss_weight
+        self.eta_mixing = eta_mixing
+        self.eta_mixing_type = eta_mixing_type
 
     def compute_transducer_loss(
         self,

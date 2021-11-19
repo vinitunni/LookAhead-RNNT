@@ -24,6 +24,8 @@ class JointNetwork(torch.nn.Module):
         decoder_output_size: int,
         joint_space_size: int,
         joint_activation_type: int,
+        eta_mixing: bool = False,
+        eta_mixing_type: str = "linear",
     ):
         """Joint network initializer."""
         super().__init__()
@@ -36,6 +38,15 @@ class JointNetwork(torch.nn.Module):
         self.lin_out = torch.nn.Linear(joint_space_size, joint_output_size)
 
         self.joint_activation = get_activation(joint_activation_type)
+        self.eta_mixing = eta_mixing
+        self.eta_mixing_type = eta_mixing_type
+        if self.eta_mixing:
+            if self.eta_mixing_type=="linear":
+                # implies concatenation of audio and text embeddings passed to a linear layer
+                self.eta_network=torch.nn.Linear(2*joint_space_size,1)
+            elif self.eta_mixing_type=="state_based_linear":
+                # implies concatenation of audio and text embeddings and the prev eta passed to a inear layer
+                self.eta_network=torch.nn.Linear(2*joint_space_size+1,1)
 
     def forward(
         self,
@@ -64,6 +75,15 @@ class JointNetwork(torch.nn.Module):
             )
 
             return self.lin_out(joint_out)[0]
+        elif self.eta_mixing:
+            u_len = dec_out.shape[2]
+            t_len = enc_out.shape[1]
+            if self.eta_mixing_type == "linear":
+                etas = torch.sigmoid(self.eta_network(torch.cat((self.lin_enc(enc_out).expand(-1,-1,u_len,-1),self.lin_dec(dec_out).expand(-1,t_len,-1,-1)),dim=-1)))
+            elif eta_mixing_type == "state_based_linear":
+                #TODO
+                raise
+            joint_out = self.joint_activation(etas * self.lin_enc(enc_out).expand(-1,-1,u_len,-1)+(1-etas)*self.lin_dec(dec_out).expand(-1,t_len,-1,-1))
         else:
             joint_out = self.joint_activation(
                 self.lin_enc(enc_out) + self.lin_dec(dec_out)
