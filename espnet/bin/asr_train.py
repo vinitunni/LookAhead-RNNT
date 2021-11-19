@@ -516,6 +516,10 @@ def get_parser(parser=None, required=True):
     parser.add_argument("--IAM-loss", type=bool, default=False, help="Whether to calculate Internal AM loss")
     parser.add_argument("--ILM-loss-weight", type=float, default=0.0, help="ILM loss weight")
     parser.add_argument("--IAM-loss-weight", type=float, default=0.0, help="IAM loss weight")
+    parser.add_argument("--eta_mixing", type=bool, default=False, help="Whether joint op should involve eta-mixing")
+    parser.add_argument("--eta-mixing-type", type=str, default="What kind of eta mixing to implement")
+    parser.add_argument("--future-context-lm", type=bool, default=False, help="Whether look-ahead AM should be implemented into LM embedding")
+    parser.add_argument("--future-context-lm-kernel", type=int, default=10, help="Default kernel value for look ahead AM")
 
     
     return parser

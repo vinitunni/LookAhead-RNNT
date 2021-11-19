@@ -330,6 +330,11 @@ class E2E(ASRInterface, torch.nn.Module):
             IAM_loss=args.IAM_loss,
             ILM_loss_weight=args.ILM_loss_weight,
             IAM_loss_weight=args.IAM_loss_weight,
+            eta_mixing=args.eta_mixing,
+            eta_mixing_type=args.eta_mixing_type,
+            future_context_lm=args.future_context_lm,
+            future_context_lm_kernel=args.future_context_lm_kernel
+
         )
 
         if training and (args.report_cer or args.report_wer):
