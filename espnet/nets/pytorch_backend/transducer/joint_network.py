@@ -26,6 +26,8 @@ class JointNetwork(torch.nn.Module):
         joint_activation_type: int,
         eta_mixing: bool = False,
         eta_mixing_type: str = "linear",
+        future_context_lm = False,
+        future_context_lm_kernel = 1,
     ):
         """Joint network initializer."""
         super().__init__()
@@ -47,6 +49,11 @@ class JointNetwork(torch.nn.Module):
             elif self.eta_mixing_type=="state_based_linear":
                 # implies concatenation of audio and text embeddings and the prev eta passed to a inear layer
                 self.eta_network=torch.nn.Linear(2*joint_space_size+1,1)
+        self.future_context_lm = future_context_lm
+        self.future_context_lm_kernel = future_context_lm
+        if self.future_context_lm:
+            self.future_context_conv_network = torch.nn.Conv1d(encoder_output_size, encoder_output_size, self.future_context_lm_kernel, padding='same')
+            self.future_context_combine_network = torch.nn.Linear(decoder_output_size+encoder_output_size , decoder_output_size)
 
     def forward(
         self,
@@ -67,6 +74,12 @@ class JointNetwork(torch.nn.Module):
             joint_out: Joint output state sequences. (B, T, U, D_out)
 
         """
+        if self.future_context_lm:
+            u_len = dec_out.shape[2]
+            t_len = enc_out.shape[1]
+            convolved_am = self.future_context_conv_network(enc_out.squeeze().transpose(1,2)).transpose(1,2).unsqueeze(2)
+            gu_temp = self.future_context_combine_network(torch.cat((dec_out.expand(-1,t_len,-1,-1),convolved_am.expand(-1,-1,u_len,-1)),dim=-1))
+            dec_out = gu_temp
         if is_aux:
             joint_out = self.joint_activation(enc_out + self.lin_dec(dec_out))
         elif quantization:

@@ -47,6 +47,8 @@ class TransducerTasks(torch.nn.Module):
         IAM_loss_weight: float = 0.125,
         eta_mixing: bool = False,
         eta_mixing_type: str = "linear",
+        future_context_lm: bool= False,
+        future_context_lm_kernel: int = 1,
     ):
         """Initialize module for Transducer tasks.
 
@@ -79,6 +81,8 @@ class TransducerTasks(torch.nn.Module):
             IAM_loss_weight: Weight of implicit AM loss
             eta_mixing: Whether joint op should be done by using eta_mixing
             eta_mixing_type: Type of eta_mixing to be implemented
+            future_context_lm: Whether LM should have future audio context
+            future_context_lm_kernel: what is the kernel size for AM convolution
 
         """
         super().__init__()
@@ -92,7 +96,8 @@ class TransducerTasks(torch.nn.Module):
             )
 
         self.joint_network = JointNetwork(
-            output_dim, encoder_dim, decoder_dim, joint_dim, joint_activation_type, eta_mixing, eta_mixing_type
+            output_dim, encoder_dim, decoder_dim, joint_dim, joint_activation_type,
+            eta_mixing, eta_mixing_type, future_context_lm, future_context_lm_kernel
         )
 
         if training:
