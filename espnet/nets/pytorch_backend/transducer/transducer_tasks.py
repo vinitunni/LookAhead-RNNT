@@ -41,6 +41,10 @@ class TransducerTasks(torch.nn.Module):
         blank_id: int = 0,
         ignore_id: int = -1,
         training: bool = False,
+        ILM_loss: bool = False,
+        IAM_loss: bool = False,
+        ILM_loss_weight: float = 0.125,
+        IAM_loss_weight: float = 0.125,
     ):
         """Initialize module for Transducer tasks.
 
@@ -141,6 +145,10 @@ class TransducerTasks(torch.nn.Module):
         self.ignore_id = ignore_id
 
         self.target = None
+        self.ILM_loss = ILM_loss
+        self.IAM_loss = IAM_loss
+        self.ILM_loss_weight = ILM_loss_weight
+        self.IAM_loss_weight = IAM_loss_weight
 
     def compute_transducer_loss(
         self,
@@ -307,6 +315,44 @@ class TransducerTasks(torch.nn.Module):
 
         return lm_loss
 
+    def compute_ILM_IAM_loss(
+        self,
+        enc_out: torch.Tensor,
+        dec_out: torch.tensor,
+        target: torch.Tensor,
+        t_len: torch.Tensor,
+        u_len: torch.Tensor,
+    ) -> Tuple[torch.Tensor, torch.Tensor]:
+        """Compute Transducer loss.
+
+        Args:
+            enc_out: Encoder output sequences. (B, T, D_enc)
+            dec_out: Decoder output sequences. (B, U, D_dec)
+            target: Target label ID sequences. (B, L)
+            t_len: Time lengths. (B,)
+            u_len: Label lengths. (B,)
+
+        Notes:
+                Joint output sequences. (B, T, U, D_joint),
+        Returns:
+            (ILM_loss, IAM_loss):
+                Internal LM loss,
+                Internal AM loss.
+
+        """
+        loss_trans_LM, loss_trans_AM = 0.0,0.0
+        if self.ILM_loss:
+            joint_out_LM = self.joint_network(torch.zeros_like(enc_out).unsqueeze(2), dec_out.unsqueeze(1))
+            loss_trans_LM = self.transducer_loss(joint_out_LM, target, t_len, u_len)
+            loss_trans_LM /= joint_out_LM.size(0)
+
+        if self.IAM_loss:
+            joint_out_AM = self.joint_network(enc_out.unsqueeze(2), torch.zeros_like(dec_out).unsqueeze(1))
+            loss_trans_AM = self.transducer_loss(joint_out_AM, target, t_len, u_len)
+            loss_trans_AM /= joint_out_AM.size(0)
+
+        return loss_trans_LM, loss_trans_AM
+
     def set_target(self, target: torch.Tensor):
         """Set target label ID sequences.
 
@@ -423,7 +469,9 @@ class TransducerTasks(torch.nn.Module):
         if self.use_symm_kl_div_loss:
             assert self.use_aux_transducer_loss
 
-        (trans_loss, ctc_loss, lm_loss, aux_trans_loss, symm_kl_div_loss) = (
+        (trans_loss, ctc_loss, lm_loss, aux_trans_loss, symm_kl_div_loss, ILM_loss, IAM_loss) = (
+            0.0,
+            0.0,
             0.0,
             0.0,
             0.0,
@@ -459,6 +507,10 @@ class TransducerTasks(torch.nn.Module):
 
         if self.use_lm_loss:
             lm_loss = self.compute_lm_loss(dec_out, lm_loss_target)
+        if self.ILM_loss or self.IAM_loss:
+           ILM_loss, IAM_loss =  self.compute_ILM_IAM_loss(
+            enc_out, dec_out, target, t_len, u_len
+        )
 
         return (
             self.transducer_loss_weight * trans_loss,
@@ -466,4 +518,6 @@ class TransducerTasks(torch.nn.Module):
             self.aux_transducer_loss_weight * aux_trans_loss,
             self.symm_kl_div_loss_weight * symm_kl_div_loss,
             self.lm_loss_weight * lm_loss,
-        )
+            self.ILM_loss_weight * ILM_loss,
+            self.IAM_loss_weight * IAM_loss,
+            )

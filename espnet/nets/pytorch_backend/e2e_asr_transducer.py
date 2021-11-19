@@ -55,6 +55,8 @@ class Reporter(chainer.Chain):
         loss_aux_trans: float,
         loss_symm_kl_div: float,
         loss_lm: float,
+        loss_ilm: float,
+        loss_iam: float,
         cer: float,
         wer: float,
     ):
@@ -324,6 +326,10 @@ class E2E(ASRInterface, torch.nn.Module):
             blank_id=blank_id,
             ignore_id=ignore_id,
             training=training,
+            ILM_loss=args.ILM_loss,
+            IAM_loss=args.IAM_loss,
+            ILM_loss_weight=args.ILM_loss_weight,
+            IAM_loss_weight=args.IAM_loss_weight,
         )
 
         if training and (args.report_cer or args.report_wer):

@@ -510,6 +510,14 @@ def get_parser(parser=None, required=True):
     )
     parser.add_argument("--fbank-fmin", type=float, default=0.0, help="")
     parser.add_argument("--fbank-fmax", type=float, default=None, help="")
+
+    # ILM/IAM loss
+    parser.add_argument("--ILM-loss", type=bool, default=False, help="Whether to calculate Internal LM loss")
+    parser.add_argument("--IAM-loss", type=bool, default=False, help="Whether to calculate Internal AM loss")
+    parser.add_argument("--ILM-loss-weight", type=float, default=0.0, help="ILM loss weight")
+    parser.add_argument("--IAM-loss-weight", type=float, default=0.0, help="IAM loss weight")
+
+    
     return parser
 
 
