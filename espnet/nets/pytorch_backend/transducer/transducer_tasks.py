@@ -48,7 +48,7 @@ class TransducerTasks(torch.nn.Module):
         eta_mixing: bool = False,
         eta_mixing_type: str = "linear",
         future_context_lm: bool= False,
-        future_context_lm_kernel: int = 1,
+        future_context_lm_kernel: int = 10,
     ):
         """Initialize module for Transducer tasks.
 
