@@ -78,7 +78,7 @@ class JointNetwork(torch.nn.Module):
             u_len = dec_out.shape[2]
             t_len = enc_out.shape[1]
             zero_pad = torch.nn.ConstantPad1d((0,self.future_context_lm_kernel-1),0)
-            convolved_am = self.future_context_conv_network(zero_pad(enc_out.squeeze().transpose(1,2))).transpose(1,2).unsqueeze(2)
+            convolved_am = self.future_context_conv_network(zero_pad(enc_out.squeeze(2).transpose(1,2))).transpose(1,2).unsqueeze(2)
             gu_temp = self.future_context_combine_network(torch.cat((dec_out.expand(-1,t_len,-1,-1),convolved_am.expand(-1,-1,u_len,-1)),dim=-1))
             dec_out = gu_temp
         if is_aux:

@@ -527,6 +527,7 @@ class TransducerTasks(torch.nn.Module):
             enc_out, dec_out, target, t_len, u_len
         )
 
+        torch.cuda.empty_cache()
         return (
             self.transducer_loss_weight * trans_loss,
             self.ctc_loss_weight * ctc_loss,
