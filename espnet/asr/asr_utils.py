@@ -773,9 +773,9 @@ def torch_load(path, model):
         model_state_dict = torch.load(path, map_location=lambda storage, loc: storage)
 
     if hasattr(model, "module"):
-        model.module.load_state_dict(model_state_dict)
+        model.module.load_state_dict(model_state_dict,strict=False)
     else:
-        model.load_state_dict(model_state_dict)
+        model.load_state_dict(model_state_dict,strict=False)
 
     del model_state_dict
 
@@ -807,9 +807,9 @@ def torch_resume(snapshot_path, trainer):
     else:
         # (for ASR model)
         if hasattr(trainer.updater.model, "module"):
-            trainer.updater.model.module.load_state_dict(snapshot_dict["model"])
+            trainer.updater.model.module.load_state_dict(snapshot_dict["model"],strict=False)
         else:
-            trainer.updater.model.load_state_dict(snapshot_dict["model"])
+            trainer.updater.model.load_state_dict(snapshot_dict["model"],strict=False)
 
     # retore optimizer states
     trainer.updater.get_optimizer("main").load_state_dict(snapshot_dict["optimizer"])
