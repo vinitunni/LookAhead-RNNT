@@ -303,6 +303,39 @@ class E2E(ASRInterface, torch.nn.Module):
             )
             decoder_out = args.dunits
 
+        try:
+            ILM_loss=args.ILM_loss
+        except:
+            ILM_loss=False
+        try:
+            IAM_loss=args.IAM_loss
+        except:
+            IAM_loss=False
+        try:
+            ILM_loss_weight=args.ILM_loss_weight
+        except:
+            ILM_loss_weight=0
+        try:
+            IAM_loss_weight=args.IAM_loss_weight
+        except:
+            IAM_loss_weight=0
+        try:
+            eta_mixing=args.eta_mixing
+        except:
+            eta_mixing=False
+        try:
+            eta_mixing_type=args.eta_mixing_type
+        except:
+            eta_mixing_type='linear'
+        try:
+            future_context_lm=args.future_context_lm
+        except:
+            future_context_lm=False
+        try:
+            future_context_lm_kernel=args.future_context_lm_kernel
+        except:
+            future_context_lm_kernel=0
+
         self.transducer_tasks = TransducerTasks(
             encoder_out,
             decoder_out,
@@ -326,14 +359,14 @@ class E2E(ASRInterface, torch.nn.Module):
             blank_id=blank_id,
             ignore_id=ignore_id,
             training=training,
-            ILM_loss=args.ILM_loss,
-            IAM_loss=args.IAM_loss,
-            ILM_loss_weight=args.ILM_loss_weight,
-            IAM_loss_weight=args.IAM_loss_weight,
-            eta_mixing=args.eta_mixing,
-            eta_mixing_type=args.eta_mixing_type,
-            future_context_lm=args.future_context_lm,
-            future_context_lm_kernel=args.future_context_lm_kernel
+            ILM_loss=ILM_loss,
+            IAM_loss=IAM_loss,
+            ILM_loss_weight=ILM_loss_weight,
+            IAM_loss_weight=IAM_loss_weight,
+            eta_mixing=eta_mixing,
+            eta_mixing_type=eta_mixing_type,
+            future_context_lm=future_context_lm,
+            future_context_lm_kernel=future_context_lm_kernel
 
         )
 
