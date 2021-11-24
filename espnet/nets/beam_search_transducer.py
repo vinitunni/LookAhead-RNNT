@@ -444,6 +444,13 @@ class BeamSearchTransducer:
         t_max = int(enc_out.size(0))
         u_max = min(self.u_max, (t_max - 1))
 
+        if self.joint_network.future_context_lm:
+            #convolve am if future context lm is true
+            zero_pad = torch.nn.ConstantPad1d((0,self.joint_network.future_context_lm_kernel-1),0)
+            convolved_am = self.joint_network.future_context_conv_network(zero_pad(enc_out.transpose(1,0)).unsqueeze(0)).transpose(1,2).squeeze(0)
+            torch.cuda.empty_cache()
+            
+
         beam_state = self.decoder.init_state(beam)
 
         B = [
@@ -472,6 +479,7 @@ class BeamSearchTransducer:
                     continue
 
                 B_.append(hyp)
+
                 B_enc_out.append((t, enc_out[t]))
 
             if B_:
@@ -481,6 +489,10 @@ class BeamSearchTransducer:
                     cache,
                     self.use_lm,
                 )
+                if self.joint_network.future_context_lm:
+                    convolved_ams = torch.stack([convolved_am[x[0]] for x in B_enc_out])
+                    gu_temp=self.joint_network.future_context_combine_network(torch.cat((beam_dec_out,convolved_ams),dim=-1))
+                    beam_dec_out = gu_temp
 
                 beam_enc_out = torch.stack([x[1] for x in B_enc_out])
 

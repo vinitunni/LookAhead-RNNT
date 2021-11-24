@@ -74,7 +74,7 @@ class JointNetwork(torch.nn.Module):
             joint_out: Joint output state sequences. (B, T, U, D_out)
 
         """
-        if self.future_context_lm:
+        if self.future_context_lm and self.training:  #Added self.training to the condition as in beam search, a single state is passed along
             u_len = dec_out.shape[2]
             t_len = enc_out.shape[1]
             zero_pad = torch.nn.ConstantPad1d((0,self.future_context_lm_kernel-1),0)
