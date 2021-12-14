@@ -190,7 +190,11 @@ class TransducerTasks(torch.nn.Module):
                 Transducer loss value.
 
         """
-        joint_out = self.joint_network(enc_out.unsqueeze(2), dec_out.unsqueeze(1))
+        if len(enc_out.shape) !=4:
+            enc_out=enc_out.unsqueeze(2)
+        if len(dec_out.shape)!=4:
+            dec_out=dec_out.unsqueeze(1)
+        joint_out = self.joint_network(enc_out, dec_out)
 
         loss_trans = self.transducer_loss(joint_out, target, t_len, u_len)
         loss_trans /= joint_out.size(0)

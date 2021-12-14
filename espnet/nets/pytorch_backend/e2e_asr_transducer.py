@@ -306,9 +306,9 @@ class E2E(ASRInterface, torch.nn.Module):
         except:
             future_context_lm_kernel=0
         try:
-            future_context_lm_type=args.future_context_lm_type
+            self.future_context_lm_type=args.future_context_lm_type
         except:
-            future_context_lm_type='lstm'
+            self.future_context_lm_type='linear'
 
         if args.dtype == "custom":
             if args.dec_block_arch is None:
@@ -328,28 +328,18 @@ class E2E(ASRInterface, torch.nn.Module):
             )
             decoder_out = self.decoder.dunits
         else:
-            if future_context_lm_type == 'linear':
-                self.dec = RNNDecoder(
-                    odim,
-                    args.dtype,
-                    args.dlayers,
-                    args.dunits,
-                    args.dec_embed_dim,
-                    dropout_rate=args.dropout_rate_decoder,
-                    dropout_rate_embed=args.dropout_rate_embed_decoder,
-                    blank_id=blank_id,
-                )
-            else:
-                self.dec = RNNDecoder(
-                    odim,
-                    args.dtype,
-                    args.dlayers,
-                    args.dunits,
-                    args.dec_embed_dim+args.eprojs,
-                    dropout_rate=args.dropout_rate_decoder,
-                    dropout_rate_embed=args.dropout_rate_embed_decoder,
-                    blank_id=blank_id,
-                )
+            self.dec = RNNDecoder(
+                odim,
+                args.dtype,
+                args.dlayers,
+                args.dunits,
+                args.dec_embed_dim,
+                dropout_rate=args.dropout_rate_decoder,
+                dropout_rate_embed=args.dropout_rate_embed_decoder,
+                blank_id=blank_id,
+                future_context_lm_type=self.future_context_lm_type,
+                encoder_out=encoder_out,
+            )
             decoder_out = args.dunits
 
         self.transducer_tasks = TransducerTasks(
@@ -382,8 +372,8 @@ class E2E(ASRInterface, torch.nn.Module):
             eta_mixing=eta_mixing,
             eta_mixing_type=eta_mixing_type,
             future_context_lm=future_context_lm,
-            future_context_lm_kernel=future_context_lm_kernel
-            future_context_lm_type=future_context_lm_type
+            future_context_lm_kernel=future_context_lm_kernel,
+            future_context_lm_type=self.future_context_lm_type
 
         )
 
@@ -474,12 +464,11 @@ class E2E(ASRInterface, torch.nn.Module):
             self.dec.set_device(enc_out.device)
 
             if self.future_context_lm_type.lower() == 'linear':
-                dec_out = self.dec(dec_in)
+                dec_out = self.dec(dec_in,torch.zeros(1))
             elif self.future_context_lm_type.lower() == 'lstm':
-                import pdb; pdb.set_trace()
-                zero_pad = torch.nn.ConstantPad1d((0,self.joint.network.future_context_lm_kernel-1),0)
-                convolved_am = self.joint_network.future_context_conv_network(zero_pad(enc_out.squeeze(2).transpose(1,2))).transpose(1,2).unsqueeze(2)
-                dec_out = self.dec(torch.cat((dec_in,convolved_am),dim=-1))
+                zero_pad = torch.nn.ConstantPad1d((0,self.transducer_tasks.joint_network.future_context_lm_kernel-1),0)
+                convolved_am = self.transducer_tasks.joint_network.future_context_conv_network(zero_pad(enc_out.squeeze(2).transpose(1,2))).transpose(1,2).unsqueeze(2)
+                dec_out = self.dec(dec_in,convolved_am)
                 
 
         # 3. Transducer task and auxiliary tasks computation

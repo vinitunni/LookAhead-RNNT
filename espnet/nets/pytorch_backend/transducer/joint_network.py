@@ -58,7 +58,8 @@ class JointNetwork(torch.nn.Module):
                 self.future_context_conv_network = torch.nn.Conv1d(encoder_output_size, encoder_output_size, self.future_context_lm_kernel, padding=0)
                 self.future_context_combine_network = torch.nn.Linear(decoder_output_size+encoder_output_size , decoder_output_size)
             elif self.future_context_lm_type.lower() == 'lstm':
-               print('Nothing to do here as conv am is combined at decoder stage') 
+                self.future_context_conv_network = torch.nn.Conv1d(encoder_output_size, encoder_output_size, self.future_context_lm_kernel, padding=0)
+               # print('Nothing to do here as conv am is combined at decoder stage') 
 
     def forward(
         self,
@@ -80,12 +81,13 @@ class JointNetwork(torch.nn.Module):
 
         """
         if self.future_context_lm and self.training:  #Added self.training to the condition as in beam search, a single state is passed along
-            u_len = dec_out.shape[2]
-            t_len = enc_out.shape[1]
-            zero_pad = torch.nn.ConstantPad1d((0,self.future_context_lm_kernel-1),0)
-            convolved_am = self.future_context_conv_network(zero_pad(enc_out.squeeze(2).transpose(1,2))).transpose(1,2).unsqueeze(2)
-            gu_temp = self.future_context_combine_network(torch.cat((dec_out.expand(-1,t_len,-1,-1),convolved_am.expand(-1,-1,u_len,-1)),dim=-1))
-            dec_out = gu_temp
+            if self.future_context_lm_type == 'linear':
+                u_len = dec_out.shape[2]
+                t_len = enc_out.shape[1]
+                zero_pad = torch.nn.ConstantPad1d((0,self.future_context_lm_kernel-1),0)
+                convolved_am = self.future_context_conv_network(zero_pad(enc_out.squeeze(2).transpose(1,2))).transpose(1,2).unsqueeze(2)
+                gu_temp = self.future_context_combine_network(torch.cat((dec_out.expand(-1,t_len,-1,-1),convolved_am.expand(-1,-1,u_len,-1)),dim=-1))
+                dec_out = gu_temp
         if is_aux:
             joint_out = self.joint_activation(enc_out + self.lin_dec(dec_out))
         elif quantization:
