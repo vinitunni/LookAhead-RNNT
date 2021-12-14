@@ -28,6 +28,7 @@ class JointNetwork(torch.nn.Module):
         eta_mixing_type: str = "linear",
         future_context_lm = False,
         future_context_lm_kernel = 10,
+        future_context_lm_type = 'linear',
     ):
         """Joint network initializer."""
         super().__init__()
@@ -51,9 +52,13 @@ class JointNetwork(torch.nn.Module):
                 self.eta_network=torch.nn.Linear(2*joint_space_size+1,1)
         self.future_context_lm = future_context_lm
         self.future_context_lm_kernel = future_context_lm_kernel
+        self.future_context_lm_type = future_context_lm_type
         if self.future_context_lm:
-            self.future_context_conv_network = torch.nn.Conv1d(encoder_output_size, encoder_output_size, self.future_context_lm_kernel, padding=0)
-            self.future_context_combine_network = torch.nn.Linear(decoder_output_size+encoder_output_size , decoder_output_size)
+            if self.future_context_lm_type.lower() == 'linear':
+                self.future_context_conv_network = torch.nn.Conv1d(encoder_output_size, encoder_output_size, self.future_context_lm_kernel, padding=0)
+                self.future_context_combine_network = torch.nn.Linear(decoder_output_size+encoder_output_size , decoder_output_size)
+            elif self.future_context_lm_type.lower() == 'lstm':
+               print('Nothing to do here as conv am is combined at decoder stage') 
 
     def forward(
         self,

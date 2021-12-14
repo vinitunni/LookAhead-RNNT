@@ -273,36 +273,6 @@ class E2E(ASRInterface, torch.nn.Module):
             )
             encoder_out = args.eprojs
 
-        if args.dtype == "custom":
-            if args.dec_block_arch is None:
-                raise ValueError(
-                    "When specifying custom decoder type, --dec-block-arch"
-                    "should be set in training config."
-                )
-
-            self.decoder = CustomDecoder(
-                odim,
-                args.dec_block_arch,
-                args.custom_dec_input_layer,
-                repeat_block=args.dec_block_repeat,
-                positionwise_activation_type=args.custom_dec_pw_activation_type,
-                input_layer_dropout_rate=args.dropout_rate_embed_decoder,
-                blank_id=blank_id,
-            )
-            decoder_out = self.decoder.dunits
-        else:
-            self.dec = RNNDecoder(
-                odim,
-                args.dtype,
-                args.dlayers,
-                args.dunits,
-                args.dec_embed_dim,
-                dropout_rate=args.dropout_rate_decoder,
-                dropout_rate_embed=args.dropout_rate_embed_decoder,
-                blank_id=blank_id,
-            )
-            decoder_out = args.dunits
-
         try:
             ILM_loss=args.ILM_loss
         except:
@@ -335,6 +305,52 @@ class E2E(ASRInterface, torch.nn.Module):
             future_context_lm_kernel=args.future_context_lm_kernel
         except:
             future_context_lm_kernel=0
+        try:
+            future_context_lm_type=args.future_context_lm_type
+        except:
+            future_context_lm_type='lstm'
+
+        if args.dtype == "custom":
+            if args.dec_block_arch is None:
+                raise ValueError(
+                    "When specifying custom decoder type, --dec-block-arch"
+                    "should be set in training config."
+                )
+
+            self.decoder = CustomDecoder(
+                odim,
+                args.dec_block_arch,
+                args.custom_dec_input_layer,
+                repeat_block=args.dec_block_repeat,
+                positionwise_activation_type=args.custom_dec_pw_activation_type,
+                input_layer_dropout_rate=args.dropout_rate_embed_decoder,
+                blank_id=blank_id,
+            )
+            decoder_out = self.decoder.dunits
+        else:
+            if future_context_lm_type == 'linear':
+                self.dec = RNNDecoder(
+                    odim,
+                    args.dtype,
+                    args.dlayers,
+                    args.dunits,
+                    args.dec_embed_dim,
+                    dropout_rate=args.dropout_rate_decoder,
+                    dropout_rate_embed=args.dropout_rate_embed_decoder,
+                    blank_id=blank_id,
+                )
+            else:
+                self.dec = RNNDecoder(
+                    odim,
+                    args.dtype,
+                    args.dlayers,
+                    args.dunits,
+                    args.dec_embed_dim+args.eprojs,
+                    dropout_rate=args.dropout_rate_decoder,
+                    dropout_rate_embed=args.dropout_rate_embed_decoder,
+                    blank_id=blank_id,
+                )
+            decoder_out = args.dunits
 
         self.transducer_tasks = TransducerTasks(
             encoder_out,
@@ -367,6 +383,7 @@ class E2E(ASRInterface, torch.nn.Module):
             eta_mixing_type=eta_mixing_type,
             future_context_lm=future_context_lm,
             future_context_lm_kernel=future_context_lm_kernel
+            future_context_lm_type=future_context_lm_type
 
         )
 
@@ -456,7 +473,14 @@ class E2E(ASRInterface, torch.nn.Module):
         else:
             self.dec.set_device(enc_out.device)
 
-            dec_out = self.dec(dec_in)
+            if self.future_context_lm_type.lower() == 'linear':
+                dec_out = self.dec(dec_in)
+            elif self.future_context_lm_type.lower() == 'lstm':
+                import pdb; pdb.set_trace()
+                zero_pad = torch.nn.ConstantPad1d((0,self.joint.network.future_context_lm_kernel-1),0)
+                convolved_am = self.joint_network.future_context_conv_network(zero_pad(enc_out.squeeze(2).transpose(1,2))).transpose(1,2).unsqueeze(2)
+                dec_out = self.dec(torch.cat((dec_in,convolved_am),dim=-1))
+                
 
         # 3. Transducer task and auxiliary tasks computation
         losses = self.transducer_tasks(
