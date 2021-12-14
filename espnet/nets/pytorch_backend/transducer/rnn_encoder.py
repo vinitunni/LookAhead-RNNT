@@ -254,7 +254,8 @@ class RNN(torch.nn.Module):
             rnn = getattr(self, ("birnn" if self.bidir else "rnn") + str(layer))
 
             if isinstance(rnn, (torch.nn.LSTM, torch.nn.GRU)):
-                rnn.flatten_parameters()
+                if self.training:
+                    rnn.flatten_parameters()
 
             if prev_states is not None and rnn.bidirectional:
                 prev_states = reset_backward_rnn_state(prev_states)

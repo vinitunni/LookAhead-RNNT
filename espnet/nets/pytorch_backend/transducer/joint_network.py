@@ -90,6 +90,7 @@ class JointNetwork(torch.nn.Module):
 
             return self.lin_out(joint_out)[0]
         elif self.eta_mixing:
+            #TODO Eta mixing while decoding
             u_len = dec_out.shape[2]
             t_len = enc_out.shape[1]
             if self.eta_mixing_type == "linear":

@@ -816,8 +816,8 @@ def torch_resume(snapshot_path, trainer):
         trainer.updater.get_optimizer("main").load_state_dict(snapshot_dict["optimizer"])
     except:
         print("optimizer has different state dict than model. Loading optimizer states for other variables")
-        snapshot_dict["optimizer"]["optimizer"]["param_groups"][0]["params"]=trainer.updater.get_optimizer("main").state_dict()["optimizer"]["param_groups"][0]["params"]
-        trainer.updater.get_optimizer("main").load_state_dict(snapshot_dict["optimizer"])
+        # snapshot_dict["optimizer"]["optimizer"]["param_groups"][0]["params"]=trainer.updater.get_optimizer("main").state_dict()["optimizer"]["param_groups"][0]["params"]
+        # trainer.updater.get_optimizer("main").load_state_dict(snapshot_dict["optimizer"])
 
     # delete opened snapshot
     del snapshot_dict
