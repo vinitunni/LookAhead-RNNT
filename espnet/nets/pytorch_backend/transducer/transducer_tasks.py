@@ -49,6 +49,7 @@ class TransducerTasks(torch.nn.Module):
         eta_mixing_type: str = "linear",
         future_context_lm: bool= False,
         future_context_lm_kernel: int = 10,
+        future_context_lm_type: int = 'linear',
     ):
         """Initialize module for Transducer tasks.
 
@@ -83,6 +84,7 @@ class TransducerTasks(torch.nn.Module):
             eta_mixing_type: Type of eta_mixing to be implemented
             future_context_lm: Whether LM should have future audio context
             future_context_lm_kernel: what is the kernel size for AM convolution
+            future_context_lm_type: What type of future context arch to use. Options are 'linear' and 'LSTM'
 
         """
         super().__init__()
@@ -97,7 +99,7 @@ class TransducerTasks(torch.nn.Module):
 
         self.joint_network = JointNetwork(
             output_dim, encoder_dim, decoder_dim, joint_dim, joint_activation_type,
-            eta_mixing, eta_mixing_type, future_context_lm, future_context_lm_kernel
+            eta_mixing, eta_mixing_type, future_context_lm, future_context_lm_kernel, future_context_lm_type
         )
 
         if training:
@@ -188,7 +190,11 @@ class TransducerTasks(torch.nn.Module):
                 Transducer loss value.
 
         """
-        joint_out = self.joint_network(enc_out.unsqueeze(2), dec_out.unsqueeze(1))
+        if len(enc_out.shape) !=4:
+            enc_out=enc_out.unsqueeze(2)
+        if len(dec_out.shape)!=4:
+            dec_out=dec_out.unsqueeze(1)
+        joint_out = self.joint_network(enc_out, dec_out)
 
         loss_trans = self.transducer_loss(joint_out, target, t_len, u_len)
         loss_trans /= joint_out.size(0)

@@ -520,6 +520,7 @@ def get_parser(parser=None, required=True):
     parser.add_argument("--eta-mixing-type", type=str, default="What kind of eta mixing to implement")
     parser.add_argument("--future-context-lm", type=bool, default=False, help="Whether look-ahead AM should be implemented into LM embedding")
     parser.add_argument("--future-context-lm-kernel", type=int, default=10, help="Default kernel value for look ahead AM")
+    parser.add_argument("--future-context-lm-type", type=str, default='linear', help="What method of future context lm to apply")
 
     
     return parser

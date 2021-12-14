@@ -39,6 +39,8 @@ class RNNDecoder(TransducerDecoderInterface, torch.nn.Module):
         dropout_rate: float = 0.0,
         dropout_rate_embed: float = 0.0,
         blank_id: int = 0,
+        future_context_lm_type: str = 'linear',
+        encoder_out: int = 1,
     ):
         """Transducer initializer."""
         super().__init__()
@@ -48,9 +50,15 @@ class RNNDecoder(TransducerDecoderInterface, torch.nn.Module):
 
         dec_net = torch.nn.LSTM if dtype == "lstm" else torch.nn.GRU
 
-        self.decoder = torch.nn.ModuleList(
-            [dec_net(embed_dim, dunits, 1, batch_first=True)]
-        )
+        self.future_context_lm_type=future_context_lm_type
+        if future_context_lm_type.lower() == 'lstm':
+            self.decoder = torch.nn.ModuleList(
+                [dec_net(embed_dim+encoder_out, dunits, 1, batch_first=True)]
+            )
+        else:
+            self.decoder = torch.nn.ModuleList(
+                [dec_net(embed_dim, dunits, 1, batch_first=True)]
+            )
         self.dropout_dec = torch.nn.Dropout(p=dropout_rate)
 
         for _ in range(1, dlayers):
@@ -143,7 +151,7 @@ class RNNDecoder(TransducerDecoderInterface, torch.nn.Module):
 
         return sequence, (h_next, c_next)
 
-    def forward(self, labels: torch.Tensor) -> torch.Tensor:
+    def forward(self, labels: torch.Tensor, convolved_am: torch.Tensor) -> torch.Tensor:
         """Encode source label sequences.
 
         Args:
@@ -155,8 +163,20 @@ class RNNDecoder(TransducerDecoderInterface, torch.nn.Module):
         """
         init_state = self.init_state(labels.size(0))
         dec_embed = self.dropout_embed(self.embed(labels))
+        if self.future_context_lm_type.lower() == 'lstm':
+            t_len = convolved_am.shape[1]
+            u_len = dec_embed.shape[1]
+            dec_embed=dec_embed.unsqueeze(1).expand(-1,t_len,-1,-1)
+            convolved_am = convolved_am.expand(-1,-1,u_len,-1)
+            dec_embed=torch.cat((dec_embed,convolved_am),dim=-1)
+            dec_out=[]
+            for t_step in range(t_len):
+                temp_dec_out, _ = self.rnn_forward(dec_embed[:,t_step,:,:], init_state)
+                dec_out.append(temp_dec_out)
+            dec_out = torch.stack(dec_out,dim=1)
 
-        dec_out, _ = self.rnn_forward(dec_embed, init_state)
+        else:
+            dec_out, _ = self.rnn_forward(dec_embed, init_state)
 
         return dec_out
 
