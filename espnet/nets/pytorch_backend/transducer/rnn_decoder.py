@@ -169,11 +169,18 @@ class RNNDecoder(TransducerDecoderInterface, torch.nn.Module):
             dec_embed=dec_embed.unsqueeze(1).expand(-1,t_len,-1,-1)
             convolved_am = convolved_am.expand(-1,-1,u_len,-1)
             dec_embed=torch.cat((dec_embed,convolved_am),dim=-1)
-            dec_out=[]
-            for t_step in range(t_len):
-                temp_dec_out, _ = self.rnn_forward(dec_embed[:,t_step,:,:], init_state)
-                dec_out.append(temp_dec_out)
-            dec_out = torch.stack(dec_out,dim=1)
+            # dec_out=[]
+            # for t_step in range(t_len):
+            #     temp_dec_out, _ = self.rnn_forward(dec_embed[:,t_step,:,:], init_state)
+            #     dec_out.append(temp_dec_out)
+            # dec_out = torch.stack(dec_out,dim=1)
+
+            b1 , t, l, f = dec_embed.shape
+            init_state_2 = self.init_state(b1*t)
+            dec_out, _ = self.rnn_forward(dec_embed.reshape([b1*t,l,f]),init_state_2)
+            dec_out=dec_out.reshape([b1,t,l,-1])
+            
+
 
         else:
             dec_out, _ = self.rnn_forward(dec_embed, init_state)
