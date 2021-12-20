@@ -309,6 +309,14 @@ class E2E(ASRInterface, torch.nn.Module):
             self.future_context_lm_type=args.future_context_lm_type
         except:
             self.future_context_lm_type='linear'
+        try:
+            self.future_context_lm_linear_layers=args.future_context_lm_linear_layers
+        except:
+            self.future_context_lm_linear_layers=1
+        try:
+            self.future_context_lm_linear_units=args.future_context_lm_linear_units
+        except:
+            self.future_context_lm_linear_units=256
 
         if args.dtype == "custom":
             if args.dec_block_arch is None:
@@ -373,7 +381,9 @@ class E2E(ASRInterface, torch.nn.Module):
             eta_mixing_type=eta_mixing_type,
             future_context_lm=future_context_lm,
             future_context_lm_kernel=future_context_lm_kernel,
-            future_context_lm_type=self.future_context_lm_type
+            future_context_lm_type=self.future_context_lm_type,
+            future_context_lm_linear_layers=self.future_context_lm_linear_layers,
+            future_context_lm_linear_units=self.future_context_lm_linear_units,
 
         )
 

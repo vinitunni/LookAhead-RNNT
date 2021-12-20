@@ -50,6 +50,9 @@ class TransducerTasks(torch.nn.Module):
         future_context_lm: bool= False,
         future_context_lm_kernel: int = 10,
         future_context_lm_type: int = 'linear',
+        future_context_lm_linear_layers=1,
+        future_context_lm_linear_units=256,
+            
     ):
         """Initialize module for Transducer tasks.
 
@@ -99,7 +102,8 @@ class TransducerTasks(torch.nn.Module):
 
         self.joint_network = JointNetwork(
             output_dim, encoder_dim, decoder_dim, joint_dim, joint_activation_type,
-            eta_mixing, eta_mixing_type, future_context_lm, future_context_lm_kernel, future_context_lm_type
+            eta_mixing, eta_mixing_type, future_context_lm, future_context_lm_kernel, future_context_lm_type,
+            future_context_lm_linear_layers, future_context_lm_linear_units
         )
 
         if training:

@@ -29,6 +29,8 @@ class JointNetwork(torch.nn.Module):
         future_context_lm = False,
         future_context_lm_kernel = 10,
         future_context_lm_type = 'linear',
+        future_context_lm_linear_layers=1,
+        future_context_lm_units=256,
     ):
         """Joint network initializer."""
         super().__init__()
@@ -56,7 +58,16 @@ class JointNetwork(torch.nn.Module):
         if self.future_context_lm:
             if self.future_context_lm_type.lower() == 'linear':
                 self.future_context_conv_network = torch.nn.Conv1d(encoder_output_size, encoder_output_size, self.future_context_lm_kernel, padding=0)
-                self.future_context_combine_network = torch.nn.Linear(decoder_output_size+encoder_output_size , decoder_output_size)
+                if future_context_lm_linear_layers == 1:
+                    self.future_context_combine_network = torch.nn.Linear(decoder_output_size+encoder_output_size , decoder_output_size)
+                else:
+                    future_context_linear_list = []
+                    future_context_linear_list.append(torch.nn.Linear(decoder_output_size+encoder_output_size , future_context_lm_units))
+                    for i in range(future_context_lm_linear_layers-2):
+                        future_context_linear_list.append(torch.nn.Linear(future_context_lm_units , future_context_lm_units))
+                    future_context_linear_list.append(torch.nn.Linear(future_context_lm_units , decoder_output_size))
+                    self.future_context_combine_network = torch.nn.Sequential(*future_context_linear_list)
+                        
             elif self.future_context_lm_type.lower() == 'lstm':
                 self.future_context_conv_network = torch.nn.Conv1d(encoder_output_size, encoder_output_size, self.future_context_lm_kernel, padding=0)
                # print('Nothing to do here as conv am is combined at decoder stage') 

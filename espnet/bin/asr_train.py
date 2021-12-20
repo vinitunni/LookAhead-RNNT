@@ -521,6 +521,8 @@ def get_parser(parser=None, required=True):
     parser.add_argument("--future-context-lm", type=bool, default=False, help="Whether look-ahead AM should be implemented into LM embedding")
     parser.add_argument("--future-context-lm-kernel", type=int, default=10, help="Default kernel value for look ahead AM")
     parser.add_argument("--future-context-lm-type", type=str, default='linear', help="What method of future context lm to apply")
+    parser.add_argument("--future-context-lm-linear-layers", type=int, default=1, help="Final number of layers")
+    parser.add_argument("--future-context-lm-linear-units", type=int, default=256, help="number of neurons for linear projection of look ahead")
 
     
     return parser
