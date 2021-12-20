@@ -483,16 +483,28 @@ class BeamSearchTransducer:
                 B_enc_out.append((t, enc_out[t]))
 
             if B_:
-                beam_dec_out, beam_state, beam_lm_tokens = self.decoder.batch_score(
-                    B_,
-                    beam_state,
-                    cache,
-                    self.use_lm,
-                )
-                if self.joint_network.future_context_lm:
+                if not self.joint_network.future_context_lm or self.joint_network.future_context_lm_type == 'linear':
+                    beam_dec_out, beam_state, beam_lm_tokens = self.decoder.batch_score(
+                        B_,
+                        beam_state,
+                        cache,
+                        self.use_lm,
+                    )
+                elif self.joint_network.future_context_lm and self.joint_network.future_context_lm_type == 'lstm':
                     convolved_ams = torch.stack([convolved_am[x[0]] for x in B_enc_out])
-                    gu_temp=self.joint_network.future_context_combine_network(torch.cat((beam_dec_out,convolved_ams),dim=-1))
-                    beam_dec_out = gu_temp
+                    beam_dec_out, beam_state, beam_lm_tokens = self.decoder.batch_score(
+                        B_,
+                        beam_state,
+                        cache,
+                        self.use_lm,
+                        convolved_ams=convolved_ams,
+                        future_context_lm_type='lstm'
+                    )
+                if self.joint_network.future_context_lm:
+                    if self.joint_network.future_context_lm_type == 'linear':
+                        convolved_ams = torch.stack([convolved_am[x[0]] for x in B_enc_out])
+                        gu_temp=self.joint_network.future_context_combine_network(torch.cat((beam_dec_out,convolved_ams),dim=-1))
+                        beam_dec_out = gu_temp
 
                 beam_enc_out = torch.stack([x[1] for x in B_enc_out])
 

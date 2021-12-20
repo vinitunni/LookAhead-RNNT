@@ -222,6 +222,8 @@ class RNNDecoder(TransducerDecoderInterface, torch.nn.Module):
         dec_states: Tuple[torch.Tensor, Optional[torch.Tensor]],
         cache: Dict[str, Any],
         use_lm: bool,
+        convolved_ams: torch.Tensor=torch.Tensor(0),
+        future_context_lm_type: str='linear',            
     ) -> Tuple[torch.Tensor, Tuple[torch.Tensor, torch.Tensor], torch.Tensor]:
         """One-step forward hypotheses.
 
@@ -240,6 +242,7 @@ class RNNDecoder(TransducerDecoderInterface, torch.nn.Module):
         final_batch = len(hyps)
 
         process = []
+        convolved_ams_process=[]
         done = [None] * final_batch
 
         for i, hyp in enumerate(hyps):
@@ -249,6 +252,7 @@ class RNNDecoder(TransducerDecoderInterface, torch.nn.Module):
                 done[i] = cache[str_labels]
             else:
                 process.append((str_labels, hyp.yseq[-1], hyp.dec_state))
+                convolved_ams_process.append(convolved_ams[i,:])
 
         if process:
             labels = torch.LongTensor([[p[1]] for p in process], device=self.device)
@@ -257,6 +261,8 @@ class RNNDecoder(TransducerDecoderInterface, torch.nn.Module):
             )
 
             dec_emb = self.embed(labels)
+            if future_context_lm_type == 'lstm':
+               dec_emb = torch.cat((dec_emb,torch.stack(convolved_ams_process).unsqueeze(1)),dim=-1)
             dec_out, new_states = self.rnn_forward(dec_emb, p_dec_states)
 
         j = 0
