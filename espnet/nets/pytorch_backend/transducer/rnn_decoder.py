@@ -252,7 +252,8 @@ class RNNDecoder(TransducerDecoderInterface, torch.nn.Module):
                 done[i] = cache[str_labels]
             else:
                 process.append((str_labels, hyp.yseq[-1], hyp.dec_state))
-                convolved_ams_process.append(convolved_ams[i,:])
+                if future_context_lm_type == 'lstm':
+                    convolved_ams_process.append(convolved_ams[i,:])
 
         if process:
             labels = torch.LongTensor([[p[1]] for p in process], device=self.device)
