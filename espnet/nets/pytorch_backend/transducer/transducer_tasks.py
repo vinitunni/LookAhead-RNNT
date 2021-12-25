@@ -374,12 +374,12 @@ class TransducerTasks(torch.nn.Module):
         """
         loss_trans_LM, loss_trans_AM = 0.0,0.0
         if self.ILM_loss:
-            joint_out_LM = self.joint_network(torch.zeros_like(enc_out).unsqueeze(2), dec_out.unsqueeze(1))
+            joint_out_LM = self.joint_network(torch.zeros_like(enc_out).unsqueeze(2), dec_out.unsqueeze(1),implicit=True)
             loss_trans_LM = self.transducer_loss(joint_out_LM, target, t_len, u_len)
             loss_trans_LM /= joint_out_LM.size(0)
 
         if self.IAM_loss:
-            joint_out_AM = self.joint_network(enc_out.unsqueeze(2), torch.zeros_like(dec_out).unsqueeze(1))
+            joint_out_AM = self.joint_network(enc_out.unsqueeze(2), torch.zeros_like(dec_out).unsqueeze(1),implicit=True)
             loss_trans_AM = self.transducer_loss(joint_out_AM, target, t_len, u_len)
             loss_trans_AM /= joint_out_AM.size(0)
 

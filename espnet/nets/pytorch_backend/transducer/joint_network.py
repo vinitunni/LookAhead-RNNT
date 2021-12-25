@@ -95,6 +95,7 @@ class JointNetwork(torch.nn.Module):
         enc_out: torch.Tensor,
         dec_out: torch.Tensor,
         target:torch.Tensor = torch.zeros(1),
+        implicit: bool = False,
         is_aux: bool = False,
         quantization: bool = False,
     ) -> torch.Tensor:
@@ -110,7 +111,7 @@ class JointNetwork(torch.nn.Module):
             joint_out: Joint output state sequences. (B, T, U, D_out)
 
         """
-        if self.future_context_lm and self.training:  #Added self.training to the condition as in beam search, a single state is passed along
+        if self.future_context_lm and self.training and not implicit:  #Added self.training to the condition as in beam search, a single state is passed along
             if self.future_context_lm_type == 'linear':
                 u_len = dec_out.shape[2]
                 t_len = enc_out.shape[1]
