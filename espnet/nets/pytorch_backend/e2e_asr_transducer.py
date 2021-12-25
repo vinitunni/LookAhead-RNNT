@@ -317,6 +317,18 @@ class E2E(ASRInterface, torch.nn.Module):
             self.future_context_lm_linear_units=args.future_context_lm_linear_units
         except:
             self.future_context_lm_linear_units=256
+        try:
+           self.la_embed_size=args.la_embed_size
+        except:
+           self.la_embed_size=128
+        try:
+           self.la_window=args.la_window
+        except:
+           self.la_window=4
+        try:
+           self.la_greedy_scheduled_sampling_probability=args.la_greedy_scheduled_sampling_probability
+        except:
+           self.la_greedy_scheduled_sampling_probability=0.2
 
         if args.dtype == "custom":
             if args.dec_block_arch is None:
@@ -384,6 +396,9 @@ class E2E(ASRInterface, torch.nn.Module):
             future_context_lm_type=self.future_context_lm_type,
             future_context_lm_linear_layers=self.future_context_lm_linear_layers,
             future_context_lm_linear_units=self.future_context_lm_linear_units,
+            la_embed_size=self.la_embed_size,
+            la_window=self.la_window,
+            la_greedy_scheduled_sampling_probability=self.la_greedy_scheduled_sampling_probability,
 
         )
 
@@ -479,6 +494,8 @@ class E2E(ASRInterface, torch.nn.Module):
                 zero_pad = torch.nn.ConstantPad1d((0,self.transducer_tasks.joint_network.future_context_lm_kernel-1),0)
                 convolved_am = self.transducer_tasks.joint_network.future_context_conv_network(zero_pad(enc_out.squeeze(2).transpose(1,2))).transpose(1,2).unsqueeze(2)
                 dec_out = self.dec(dec_in,convolved_am)
+            else:
+                dec_out = self.dec(dec_in,torch.zeros(1))
                 
 
         # 3. Transducer task and auxiliary tasks computation

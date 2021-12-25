@@ -523,6 +523,9 @@ def get_parser(parser=None, required=True):
     parser.add_argument("--future-context-lm-type", type=str, default='linear', help="What method of future context lm to apply")
     parser.add_argument("--future-context-lm-linear-layers", type=int, default=1, help="Final number of layers")
     parser.add_argument("--future-context-lm-linear-units", type=int, default=256, help="number of neurons for linear projection of look ahead")
+    parser.add_argument("--la-embed-size", type=int, default=128, help="Size of embedding for lookahead tokens")
+    parser.add_argument("--la-window", type=int, default=4, help="Number of look ahead tokens")
+    parser.add_argument("--la-greedy-scheduled-sampling-probability", type=float, default=0.2, help="With this probability, we will do teacher forcing")
 
     
     return parser
