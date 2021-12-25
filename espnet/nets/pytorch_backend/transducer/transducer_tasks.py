@@ -52,6 +52,9 @@ class TransducerTasks(torch.nn.Module):
         future_context_lm_type: int = 'linear',
         future_context_lm_linear_layers=1,
         future_context_lm_linear_units=256,
+        la_embed_size=128,
+        la_window=4,
+        la_greedy_scheduled_sampling_probability=0.2
             
     ):
         """Initialize module for Transducer tasks.
@@ -88,6 +91,9 @@ class TransducerTasks(torch.nn.Module):
             future_context_lm: Whether LM should have future audio context
             future_context_lm_kernel: what is the kernel size for AM convolution
             future_context_lm_type: What type of future context arch to use. Options are 'linear' and 'LSTM'
+            la_embed_size=Embedding layer size for look ahead tokens
+            la_window=Number of look ahead tokens to use
+            la_greedy_scheduled_sampling_probability=Sampling probability for teacher forcing
 
         """
         super().__init__()
@@ -103,7 +109,8 @@ class TransducerTasks(torch.nn.Module):
         self.joint_network = JointNetwork(
             output_dim, encoder_dim, decoder_dim, joint_dim, joint_activation_type,
             eta_mixing, eta_mixing_type, future_context_lm, future_context_lm_kernel, future_context_lm_type,
-            future_context_lm_linear_layers, future_context_lm_linear_units
+            future_context_lm_linear_layers, future_context_lm_linear_units,
+            la_embed_size, la_window, la_greedy_scheduled_sampling_probability
         )
 
         if training:
@@ -198,7 +205,7 @@ class TransducerTasks(torch.nn.Module):
             enc_out=enc_out.unsqueeze(2)
         if len(dec_out.shape)!=4:
             dec_out=dec_out.unsqueeze(1)
-        joint_out = self.joint_network(enc_out, dec_out)
+        joint_out = self.joint_network(enc_out, dec_out,target)
 
         loss_trans = self.transducer_loss(joint_out, target, t_len, u_len)
         loss_trans /= joint_out.size(0)
