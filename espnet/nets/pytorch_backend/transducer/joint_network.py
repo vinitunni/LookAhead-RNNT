@@ -111,16 +111,17 @@ class JointNetwork(torch.nn.Module):
             joint_out: Joint output state sequences. (B, T, U, D_out)
 
         """
-        if self.future_context_lm and self.training and not implicit:  #Added self.training to the condition as in beam search, a single state is passed along
-            if self.future_context_lm_type == 'linear':
+        if self.future_context_lm and not implicit:  #Added self.training to the condition as in beam search, a single state is passed along
+            if self.future_context_lm_type == 'linear' and len(enc_out.shape)>1:
                 u_len = dec_out.shape[2]
                 t_len = enc_out.shape[1]
                 zero_pad = torch.nn.ConstantPad1d((0,self.future_context_lm_kernel-1),0)
                 convolved_am = self.future_context_conv_network(zero_pad(enc_out.squeeze(2).transpose(1,2))).transpose(1,2).unsqueeze(2)
                 gu_temp = self.future_context_combine_network(torch.cat((dec_out.expand(-1,t_len,-1,-1),convolved_am.expand(-1,-1,u_len,-1)),dim=-1))
                 dec_out = gu_temp
-            elif self.future_context_lm_type == 'greedy_lookahead_aligned':
+            elif self.future_context_lm_type == 'greedy_lookahead_aligned' and len(enc_out.shape)>1:
                 am_outs = self.lin_out(self.lin_enc(enc_out)).argmax(dim=-1).squeeze(-1)  # after this, the size is B x T
+                import pdb; pdb.set_trace()
                 B, T = am_outs.shape
                 U = dec_out.shape[2]
                 am_outs = torch.cat([am_outs,torch.zeros([B,1],dtype=am_outs.dtype,device=am_outs.device)],dim=-1)
@@ -129,14 +130,15 @@ class JointNetwork(torch.nn.Module):
                     for t in range(T):
                         la_tokens[b,t] = torch.cat([am_outs[b,t+1:][am_outs[b,t+1:]!=0][:self.la_window],torch.zeros(self.la_window,device=enc_out.device,dtype=am_outs.dtype)])[:self.la_window]
                 la_tokens =  la_tokens.unsqueeze(-2).expand(-1,-1,U,-1)   # Shape here is B x T x 1 x embed*num_tokens
-                target = torch.cat([target,torch.zeros([B,1],device=am_outs.device,dtype=target.dtype)],dim=-1)
-                sched_samp = torch.zeros([B,U,self.la_window],dtype=am_outs.dtype,device=am_outs.device)
-                for b in range(B):
-                    for u in range(U):
-                        sched_samp[b,u] = torch.cat([target[b,u:][:self.la_window],torch.zeros(self.la_window,device=enc_out.device,dtype=am_outs.dtype)])[:self.la_window]
-                sched_samp = sched_samp.unsqueeze(1).expand(-1,T,-1,-1)
-                sched_samp_rand = torch.rand(sched_samp.shape,device=la_tokens.device)
-                la_tokens = la_tokens * (sched_samp_rand > self.la_greedy_scheduled_sampling_probability).to(int) + sched_samp * (sched_samp_rand <= self.la_greedy_scheduled_sampling_probability)
+                if self.training:  # Perform scheduled sampling only during training
+                    target = torch.cat([target,torch.zeros([B,1],device=am_outs.device,dtype=target.dtype)],dim=-1)
+                    sched_samp = torch.zeros([B,U,self.la_window],dtype=am_outs.dtype,device=am_outs.device)
+                    for b in range(B):
+                        for u in range(U):
+                            sched_samp[b,u] = torch.cat([target[b,u:][:self.la_window],torch.zeros(self.la_window,device=enc_out.device,dtype=am_outs.dtype)])[:self.la_window]
+                    sched_samp = sched_samp.unsqueeze(1).expand(-1,T,-1,-1)
+                    sched_samp_rand = torch.rand(sched_samp.shape,device=la_tokens.device)
+                    la_tokens = la_tokens * (sched_samp_rand > self.la_greedy_scheduled_sampling_probability).to(int) + sched_samp * (sched_samp_rand <= self.la_greedy_scheduled_sampling_probability)
                 la_tokens = self.embed_la(la_tokens).reshape(B,T,U,-1)
                 dec_out = dec_out.expand(-1,T,-1,-1)
                 dec_out = torch.cat([dec_out,la_tokens],dim=-1)
