@@ -121,7 +121,6 @@ class JointNetwork(torch.nn.Module):
                 dec_out = gu_temp
             elif self.future_context_lm_type == 'greedy_lookahead_aligned' and len(enc_out.shape)>1:
                 am_outs = self.lin_out(self.lin_enc(enc_out)).argmax(dim=-1).squeeze(-1)  # after this, the size is B x T
-                import pdb; pdb.set_trace()
                 B, T = am_outs.shape
                 U = dec_out.shape[2]
                 am_outs = torch.cat([am_outs,torch.zeros([B,1],dtype=am_outs.dtype,device=am_outs.device)],dim=-1)
