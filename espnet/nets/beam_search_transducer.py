@@ -446,9 +446,10 @@ class BeamSearchTransducer:
 
         if self.joint_network.future_context_lm:
             #convolve am if future context lm is true
-            zero_pad = torch.nn.ConstantPad1d((0,self.joint_network.future_context_lm_kernel-1),0)
-            convolved_am = self.joint_network.future_context_conv_network(zero_pad(enc_out.transpose(1,0)).unsqueeze(0)).transpose(1,2).squeeze(0)
-            torch.cuda.empty_cache()
+            if self.joint_network.future_context_lm_type == 'linear' or self.joint_network.future_context_lm_type == 'lstm':
+                zero_pad = torch.nn.ConstantPad1d((0,self.joint_network.future_context_lm_kernel-1),0)
+                convolved_am = self.joint_network.future_context_conv_network(zero_pad(enc_out.transpose(1,0)).unsqueeze(0)).transpose(1,2).squeeze(0)
+                torch.cuda.empty_cache()
             
 
         beam_state = self.decoder.init_state(beam)
@@ -483,7 +484,8 @@ class BeamSearchTransducer:
                 B_enc_out.append((t, enc_out[t]))
 
             if B_:
-                if not self.joint_network.future_context_lm or self.joint_network.future_context_lm_type == 'linear':
+                # First get output from LSTM
+                if not self.joint_network.future_context_lm or self.joint_network.future_context_lm_type == 'linear' or self.joint_network.future_context_lm_type == 'greedy_lookahead_aligned':
                     beam_dec_out, beam_state, beam_lm_tokens = self.decoder.batch_score(
                         B_,
                         beam_state,
@@ -500,11 +502,20 @@ class BeamSearchTransducer:
                         convolved_ams=convolved_ams,
                         future_context_lm_type='lstm'
                     )
+                    
+                # Later modify g_u representations
                 if self.joint_network.future_context_lm:
                     if self.joint_network.future_context_lm_type == 'linear':
                         convolved_ams = torch.stack([convolved_am[x[0]] for x in B_enc_out])
                         gu_temp=self.joint_network.future_context_combine_network(torch.cat((beam_dec_out,convolved_ams),dim=-1))
                         beam_dec_out = gu_temp
+                    elif self.joint_network.future_context_lm_type == 'greedy_lookahead_aligned':
+                        greedy_outs = self.joint_network.lin_out(self.joint_network.lin_enc(enc_out)).argmax(dim=-1)
+                        la_tokens = torch.stack([torch.cat([greedy_outs[x[0]:][greedy_outs[x[0]:]!=0][:self.joint_network.la_window],torch.zeros(self.joint_network.la_window,dtype=greedy_outs.dtype,device=greedy_outs.device)])[:self.joint_network.la_window] for x in B_enc_out])
+                        init_b, _ = la_tokens.shape
+                        la_tokens = self.joint_network.embed_la(la_tokens).reshape(init_b,-1)
+                        beam_dec_out = torch.cat([beam_dec_out,la_tokens],dim=-1)
+                        beam_dec_out = self.joint_network.future_context_combine_network(beam_dec_out)
 
                 beam_enc_out = torch.stack([x[1] for x in B_enc_out])
 

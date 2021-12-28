@@ -112,14 +112,14 @@ class JointNetwork(torch.nn.Module):
 
         """
         if self.future_context_lm and not implicit:  #Added self.training to the condition as in beam search, a single state is passed along
-            if self.future_context_lm_type == 'linear' and len(enc_out.shape)>1:
+            if self.future_context_lm_type == 'linear' and len(enc_out.shape)>2:
                 u_len = dec_out.shape[2]
                 t_len = enc_out.shape[1]
                 zero_pad = torch.nn.ConstantPad1d((0,self.future_context_lm_kernel-1),0)
                 convolved_am = self.future_context_conv_network(zero_pad(enc_out.squeeze(2).transpose(1,2))).transpose(1,2).unsqueeze(2)
                 gu_temp = self.future_context_combine_network(torch.cat((dec_out.expand(-1,t_len,-1,-1),convolved_am.expand(-1,-1,u_len,-1)),dim=-1))
                 dec_out = gu_temp
-            elif self.future_context_lm_type == 'greedy_lookahead_aligned' and len(enc_out.shape)>1:
+            elif self.future_context_lm_type == 'greedy_lookahead_aligned' and len(enc_out.shape)>2:
                 am_outs = self.lin_out(self.lin_enc(enc_out)).argmax(dim=-1).squeeze(-1)  # after this, the size is B x T
                 B, T = am_outs.shape
                 U = dec_out.shape[2]
