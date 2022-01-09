@@ -66,8 +66,10 @@ class JointNetwork(torch.nn.Module):
                 else:
                     future_context_linear_list = []
                     future_context_linear_list.append(torch.nn.Linear(decoder_output_size+encoder_output_size , future_context_lm_units))
+                    future_context_linear_list.append(torch.nn.Tanh())
                     for i in range(future_context_lm_linear_layers-2):
                         future_context_linear_list.append(torch.nn.Linear(future_context_lm_units , future_context_lm_units))
+                        future_context_linear_list.append(torch.nn.Tanh())
                     future_context_linear_list.append(torch.nn.Linear(future_context_lm_units , decoder_output_size))
                     self.future_context_combine_network = torch.nn.Sequential(*future_context_linear_list)
                         
@@ -84,8 +86,10 @@ class JointNetwork(torch.nn.Module):
                 else:
                     future_context_linear_list = []
                     future_context_linear_list.append(torch.nn.Linear(decoder_output_size+(self.la_window*self.la_embed_size) , future_context_lm_units))
+                    future_context_linear_list.append(torch.nn.Tanh())
                     for i in range(future_context_lm_linear_layers-2):
                         future_context_linear_list.append(torch.nn.Linear(future_context_lm_units , future_context_lm_units))
+                        future_context_linear_list.append(torch.nn.Tanh())
                     future_context_linear_list.append(torch.nn.Linear(future_context_lm_units , decoder_output_size))
                     self.future_context_combine_network = torch.nn.Sequential(*future_context_linear_list)
                 
