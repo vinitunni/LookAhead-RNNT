@@ -92,6 +92,21 @@ class JointNetwork(torch.nn.Module):
                         future_context_linear_list.append(torch.nn.Tanh())
                     future_context_linear_list.append(torch.nn.Linear(future_context_lm_units , decoder_output_size))
                     self.future_context_combine_network = torch.nn.Sequential(*future_context_linear_list)
+            elif self.future_context_lm_type == 'greedy_lookahead_acoustic_aligned':
+                self.la_embed_size=la_embed_size
+                self.la_window=la_window
+                self.la_greedy_scheduled_sampling_probability=la_greedy_scheduled_sampling_probability   # With this probability, use the ground truth
+                if future_context_lm_linear_layers == 1:
+                    self.future_context_combine_network = torch.nn.Linear(decoder_output_size+(self.la_window*encoder_output_size) , decoder_output_size)
+                else:
+                    future_context_linear_list = []
+                    future_context_linear_list.append(torch.nn.Linear(decoder_output_size+(self.la_window*encoder_output_size) , future_context_lm_units))
+                    future_context_linear_list.append(torch.nn.Tanh())
+                    for i in range(future_context_lm_linear_layers-2):
+                        future_context_linear_list.append(torch.nn.Linear(future_context_lm_units , future_context_lm_units))
+                        future_context_linear_list.append(torch.nn.Tanh())
+                    future_context_linear_list.append(torch.nn.Linear(future_context_lm_units , decoder_output_size))
+                    self.future_context_combine_network = torch.nn.Sequential(*future_context_linear_list)
                 
 
     def forward(
@@ -144,6 +159,21 @@ class JointNetwork(torch.nn.Module):
                     sched_samp_rand = torch.rand([B,T,U,1],device=la_tokens.device).expand(-1,-1,-1,self.la_window)
                     la_tokens = la_tokens * (sched_samp_rand > self.la_greedy_scheduled_sampling_probability).to(int) + sched_samp * (sched_samp_rand <= self.la_greedy_scheduled_sampling_probability).to(int)
                 la_tokens = self.embed_la(la_tokens).reshape(B,T,U,-1)
+                dec_out = dec_out.expand(-1,T,-1,-1)
+                dec_out = torch.cat([dec_out,la_tokens],dim=-1)
+                dec_out = self.future_context_combine_network(dec_out)
+            elif self.future_context_lm_type == 'greedy_lookahead_acoustic_aligned' and len(enc_out.shape)>2:
+                am_outs = self.lin_out(self.lin_enc(enc_out)).argmax(dim=-1).squeeze(-1)  # after this, the size is B x T
+                B, T = am_outs.shape
+                U = dec_out.shape[2]
+                am_outs = torch.cat([am_outs,torch.zeros([B,1],dtype=am_outs.dtype,device=am_outs.device)],dim=-1)
+                la_tokens = torch.zeros([B,T,self.la_window,1,enc_out.shape[3]],dtype=am_outs.dtype,device=am_outs.device)
+                enc_outs_temp = torch.cat([enc_out,torch.zeros([B,1,1,enc_out.shape[3]],device=enc_out.device)],dim=1)
+                for b in range(am_outs.shape[0]):
+                    for t in range(T):
+                        la_tokens[b,t] = torch.cat([enc_outs_temp[b,t+1:][am_outs[b,t+1:]!=0][:self.la_window],torch.zeros([self.la_window,1,enc_out.shape[3]],device=enc_out.device,dtype=am_outs.dtype)],dim=0)[:self.la_window]
+                la_tokens = la_tokens.reshape(B,T,-1)
+                la_tokens =  la_tokens.unsqueeze(-2).expand(-1,-1,U,-1)   # Shape here is B x T x U x embed*num_tokens
                 dec_out = dec_out.expand(-1,T,-1,-1)
                 dec_out = torch.cat([dec_out,la_tokens],dim=-1)
                 dec_out = self.future_context_combine_network(dec_out)
