@@ -485,7 +485,7 @@ class BeamSearchTransducer:
 
             if B_:
                 # First get output from LSTM
-                if not self.joint_network.future_context_lm or self.joint_network.future_context_lm_type == 'linear' or self.joint_network.future_context_lm_type == 'greedy_lookahead_aligned':
+                if not self.joint_network.future_context_lm or self.joint_network.future_context_lm_type == 'linear' or self.joint_network.future_context_lm_type == 'greedy_lookahead_aligned' or self.joint_network.future_context_lm_type == 'greedy_lookahead_acoustic_aligned':
                     beam_dec_out, beam_state, beam_lm_tokens = self.decoder.batch_score(
                         B_,
                         beam_state,
