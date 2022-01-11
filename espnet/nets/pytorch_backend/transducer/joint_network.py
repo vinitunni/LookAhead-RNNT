@@ -140,7 +140,8 @@ class JointNetwork(torch.nn.Module):
                         for u in range(U):
                             sched_samp[b,u] = torch.cat([target[b,u:][:self.la_window],torch.zeros(self.la_window,device=enc_out.device,dtype=am_outs.dtype)])[:self.la_window]
                     sched_samp = sched_samp.unsqueeze(1).expand(-1,T,-1,-1)
-                    sched_samp_rand = torch.rand(sched_samp.shape,device=la_tokens.device)
+                    # sched_samp_rand = torch.rand(sched_samp.shape,device=la_tokens.device)   # Commented to enable teacher forcing at substring level instead of token level
+                    sched_samp_rand = torch.rand([B,T,U,1],device=la_tokens.device).expand(-1,-1,-1,self.la_window)
                     la_tokens = la_tokens * (sched_samp_rand > self.la_greedy_scheduled_sampling_probability).to(int) + sched_samp * (sched_samp_rand <= self.la_greedy_scheduled_sampling_probability).to(int)
                 la_tokens = self.embed_la(la_tokens).reshape(B,T,U,-1)
                 dec_out = dec_out.expand(-1,T,-1,-1)
