@@ -22,7 +22,7 @@ do_delta=false
 
 # config files
 preprocess_config=conf/no_preprocess.yaml  # use conf/specaug.yaml for data augmentation
-train_config=conf/train.yaml
+train_config=conf/tuning/transducer/train_rnn_transducer.yaml
 decode_config=conf/decode.yaml
 
 # decoding parameter

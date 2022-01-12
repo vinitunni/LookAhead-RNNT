@@ -1,0 +1,45 @@
+dictionary: data/lang_1char/tr_en_units.txt
+stage 4: Decoding
+
+------------------------------------------------------------
+Sender: LSF System <lsfadmin@cccxc514.pok.ibm.com>
+Subject: Job 3288201: <./run.sh  --stage 4 --stop-stage 4 --lang en> in cluster <cccCluster> Exited
+
+Job <./run.sh  --stage 4 --stop-stage 4 --lang en> was submitted from host <cccxl016.pok.ibm.com> by user <skhare34> in cluster <cccCluster> at Fri Dec  3 06:08:58 2021
+Job was executed on host(s) <cccxc514.pok.ibm.com>, in queue <x86_24h>, as user <skhare34> in cluster <cccCluster> at Fri Dec  3 06:09:00 2021
+</u/skhare34> was used as the home directory.
+</dccstor/cssblr/shreya/speech_exp/ASR_E2E/egs/voxforge/asr1> was used as the working directory.
+Started at Fri Dec  3 06:09:00 2021
+Terminated at Fri Dec  3 06:09:09 2021
+Results reported at Fri Dec  3 06:09:09 2021
+
+Your job looked like:
+
+------------------------------------------------------------
+# LSBATCH: User input
+./run.sh  --stage 4 --stop-stage 4 --lang en
+------------------------------------------------------------
+
+Exited with exit code 1.
+
+Resource usage summary:
+
+    CPU time :                                   0.55 sec.
+    Max Memory :                                 14 MB
+    Average Memory :                             14.00 MB
+    Total Requested Memory :                     54272.00 MB
+    Delta Memory :                               54258.00 MB
+    Max Swap :                                   -
+    Max Processes :                              4
+    Max Threads :                                5
+    Run time :                                   8 sec.
+    Turnaround time :                            11 sec.
+
+The output (if any) is above this job summary.
+
+
+
+PS:
+
+Read file <logs/feature.err> for stderr output of this job.
+
