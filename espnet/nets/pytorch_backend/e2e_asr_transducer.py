@@ -329,6 +329,11 @@ class E2E(ASRInterface, torch.nn.Module):
            self.la_greedy_scheduled_sampling_probability=args.la_greedy_scheduled_sampling_probability
         except:
            self.la_greedy_scheduled_sampling_probability=0.2
+        self.char_list = args.char_list
+        try:
+            self.la_teacher_forcing_dist_threshold = args.la_teacher_forcing_dist_threshold
+        except:
+            self.la_teacher_forcing_dist_threshold = 0.1
 
         if args.dtype == "custom":
             if args.dec_block_arch is None:
@@ -399,6 +404,7 @@ class E2E(ASRInterface, torch.nn.Module):
             la_embed_size=self.la_embed_size,
             la_window=self.la_window,
             la_greedy_scheduled_sampling_probability=self.la_greedy_scheduled_sampling_probability,
+            la_teacher_forcing_dist_threshold = self.la_teacher_forcing_dist_threshold,
 
         )
 
@@ -506,6 +512,7 @@ class E2E(ASRInterface, torch.nn.Module):
             labels,
             enc_out_len,
             aux_enc_out_len,
+            char_list=self.char_list,
         )
 
         if self.training or self.error_calculator is None:

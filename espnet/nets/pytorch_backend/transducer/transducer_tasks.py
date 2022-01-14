@@ -54,7 +54,8 @@ class TransducerTasks(torch.nn.Module):
         future_context_lm_linear_units=256,
         la_embed_size=128,
         la_window=4,
-        la_greedy_scheduled_sampling_probability=0.2
+        la_greedy_scheduled_sampling_probability=0.2,
+        la_teacher_forcing_dist_threshold=0.1,
             
     ):
         """Initialize module for Transducer tasks.
@@ -110,7 +111,7 @@ class TransducerTasks(torch.nn.Module):
             output_dim, encoder_dim, decoder_dim, joint_dim, joint_activation_type,
             eta_mixing, eta_mixing_type, future_context_lm, future_context_lm_kernel, future_context_lm_type,
             future_context_lm_linear_layers, future_context_lm_linear_units,
-            la_embed_size, la_window, la_greedy_scheduled_sampling_probability
+            la_embed_size, la_window, la_greedy_scheduled_sampling_probability, la_teacher_forcing_dist_threshold
         )
 
         if training:
@@ -185,6 +186,7 @@ class TransducerTasks(torch.nn.Module):
         target: torch.Tensor,
         t_len: torch.Tensor,
         u_len: torch.Tensor,
+        char_list: List=[],
     ) -> Tuple[torch.Tensor, torch.Tensor]:
         """Compute Transducer loss.
 
@@ -205,7 +207,7 @@ class TransducerTasks(torch.nn.Module):
             enc_out=enc_out.unsqueeze(2)
         if len(dec_out.shape)!=4:
             dec_out=dec_out.unsqueeze(1)
-        joint_out = self.joint_network(enc_out, dec_out,target)
+        joint_out = self.joint_network(enc_out, dec_out,target,char_list=char_list)
 
         loss_trans = self.transducer_loss(joint_out, target, t_len, u_len)
         loss_trans /= joint_out.size(0)
@@ -479,6 +481,7 @@ class TransducerTasks(torch.nn.Module):
         labels: torch.Tensor,
         enc_out_len: torch.Tensor,
         aux_enc_out_len: torch.Tensor,
+        char_list: List=[]
     ) -> Tuple[Tuple[Any], float, float]:
         """Forward main and auxiliary task.
 
@@ -518,7 +521,8 @@ class TransducerTasks(torch.nn.Module):
         )
 
         joint_out, trans_loss = self.compute_transducer_loss(
-            enc_out, dec_out, target, t_len, u_len
+            enc_out, dec_out, target, t_len, u_len,
+            char_list=char_list
         )
 
         if self.use_ctc_loss:
