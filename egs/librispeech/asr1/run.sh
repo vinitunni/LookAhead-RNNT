@@ -10,8 +10,8 @@
 backend=pytorch
 stage=5       # start from -1 if you need to start from data download
 stop_stage=100
-ngpu=3         # number of gpus ("0" uses cpu, otherwise use gpu)
-export CUDA_VISIBLE_DEVICES=0,1,2
+ngpu=1       # number of gpus ("0" uses cpu, otherwise use gpu)
+# export CUDA_VISIBLE_DEVICES=0,1,2
 nj=14
 debugmode=1
 dumpdir=dump   # directory to dump full features
@@ -23,7 +23,7 @@ resume=        # Resume the training from snapshot
 do_delta=false
 
 preprocess_config=conf/specaug.yaml
-train_config=conf/train_rnnt_voxforge.yaml # current default recipe requires 4 gpus.
+train_config=conf/train_rnn_transducer.yaml # current default recipe requires 4 gpus.
                              # if you do not have 4 gpus, please reconfigure the `batch-bins` and `accum-grad` parameters in config.
 lm_config=conf/lm.yaml
 decode_config=conf/decode.yaml
@@ -33,7 +33,7 @@ lm_resume= # specify a snapshot file to resume LM training
 lmtag=     # tag for managing LMs
 
 # decoding parameter
-recog_model=model.acc.best  # set a model to be used for decoding: 'model.acc.best' or 'model.loss.best'
+recog_model=model.loss.best  # set a model to be used for decoding: 'model.acc.best' or 'model.loss.best'
 lang_model=rnnlm.model.best # set a language model to be used for decoding
 
 # model average realted (only for transformer)
@@ -47,7 +47,7 @@ use_lm_valbest_average=false # if true, the validation `lm_n_average`-best langu
 # Set this to somewhere where you want to put your data, or where
 # someone else has already put it.  You'll want to change this
 # if you're not on the CLSP grid.
-datadir=/exp/vinit/Datasets/librispeech
+datadir=/dccstor/cssblr/shreya/speech_exp/ASR_E2E/egs/librispeech/asr1/data/LibriSpeech/
 
 # base url for downloads.
 data_url=www.openslr.org/resources/12
@@ -70,11 +70,11 @@ set -o pipefail
 train_set=train_100
 train_sp=train_sp
 train_dev=dev
-recog_set="test_clean test_other dev_clean dev_other"
+recog_set="test-clean test-other dev-clean dev-other"
 
 if [ ${stage} -le -1 ] && [ ${stop_stage} -ge -1 ]; then
     echo "stage -1: Data Download"
-    for part in dev-clean test-clean dev-other test-other train-clean-100 train-clean-360 train-other-500; do
+    for part in  train-clean-360 train-other-500; do
         local/download_and_untar.sh ${datadir} ${data_url} ${part}
     done
 fi
@@ -83,14 +83,14 @@ if [ ${stage} -le 0 ] && [ ${stop_stage} -ge 0 ]; then
     ### Task dependent. You have to make data the following preparation part by yourself.
     ### But you can utilize Kaldi recipes in most cases
     echo "stage 0: Data preparation"
-    for part in dev-clean test-clean dev-other test-other train-clean-100; do
+    for part in  train-clean-360 train-other-500; do
         # use underscore-separated names in data directories.
         local/data_prep.sh ${datadir}/LibriSpeech/${part} data/${part//-/_}
     done
 fi
 
 feat_tr_dir=${dumpdir}/${train_set}/delta${do_delta}; mkdir -p ${feat_tr_dir}
-#feat_sp_dir=${dumpdir}/${train_sp}/delta${do_delta}; mkdir -p ${feat_sp_dir}
+feat_sp_dir=${dumpdir}/${train_sp}/delta${do_delta}; mkdir -p ${feat_sp_dir}
 feat_dt_dir=${dumpdir}/${train_dev}/delta${do_delta}; mkdir -p ${feat_dt_dir}
 if [ ${stage} -le 1 ] && [ ${stop_stage} -ge 1 ]; then
     ### Task dependent. You have to design training and dev sets by yourself.
@@ -98,29 +98,30 @@ if [ ${stage} -le 1 ] && [ ${stop_stage} -ge 1 ]; then
     echo "stage 1: Feature Generation"
     fbankdir=fbank
     # Generate the fbank features; by default 80-dimensional fbanks with pitch on each frame
-    #for x in dev_clean test_clean dev_other test_other train_clean_100 train_clean_360 train_other_500; do
+    # for x in dev-clean test-clean dev-other test-other train-clean-100 train-clean-360 train-other-500; do
+    for x in train-clean-360 train-other-500; do
 	#for x in dev_clean test_clean dev_other test_other train_clean_100; do
-		#steps/make_fbank_pitch.sh --cmd "$train_cmd" --nj ${nj} --write_utt2num_frames true \
-			#data/${x} exp/make_fbank/${x} ${fbankdir}
-		#utils/fix_data_dir.sh data/${x}
-	#done
+		steps/make_fbank_pitch.sh --cmd "$train_cmd" --nj ${nj} --write_utt2num_frames true \
+			data/${x} exp/make_fbank/${x} ${fbankdir}
+		utils/fix_data_dir.sh data/${x}
+	done
 
-    utils/combine_data.sh --extra_files utt2num_frames data/${train_set}_org data/train_clean_100
-    utils/combine_data.sh --extra_files utt2num_frames data/${train_dev}_org data/dev_clean data/dev_other
-    #utils/perturb_data_dir_speed.sh 0.9  data/${train_set}_org  data/temp1
-    #utils/perturb_data_dir_speed.sh 1.0  data/${train_set}_org  data/temp2
-    #utils/perturb_data_dir_speed.sh 1.1  data/${train_set}_org  data/temp3
+    utils/combine_data.sh --extra_files utt2num_frames data/${train_set}_org data/train-clean-100
+    utils/combine_data.sh --extra_files utt2num_frames data/${train_dev}_org data/dev-clean data/dev-other
+    utils/perturb_data_dir_speed.sh 0.9  data/${train_set}_org  data/temp1
+    utils/perturb_data_dir_speed.sh 1.0  data/${train_set}_org  data/temp2
+    utils/perturb_data_dir_speed.sh 1.1  data/${train_set}_org  data/temp3
 
-    #utils/combine_data.sh --extra-files utt2uniq data/${train_sp}_org data/temp1 data/temp2 data/temp3
+    utils/combine_data.sh --extra-files utt2uniq data/${train_sp}_org data/temp1 data/temp2 data/temp3
 
     # remove utt having more than 3000 frames
     # remove utt having more than 400 characters
     remove_longshortdata.sh --maxframes 3000 --maxchars 400 data/${train_set}_org data/${train_set}
-    #remove_longshortdata.sh --maxframes 3000 --maxchars 400 data/${train_sp}_org data/${train_sp}
+    remove_longshortdata.sh --maxframes 3000 --maxchars 400 data/${train_sp}_org data/${train_sp}
     remove_longshortdata.sh --maxframes 3000 --maxchars 400 data/${train_dev}_org data/${train_dev}
-    #steps/make_fbank_pitch.sh --cmd "$train_cmd" --nj $nj  --write_utt2num_frames true \
-            #data/train_sp  exp/make_fbank/train_sp  ${fbankdir}
-    #utils/fix_data_dir.sh data/train_sp
+    steps/make_fbank_pitch.sh --cmd "$train_cmd" --nj $nj  --write_utt2num_frames true \
+            data/train_sp  exp/make_fbank/train_sp  ${fbankdir}
+    utils/fix_data_dir.sh data/train_sp
     # compute global CMVN
 	compute-cmvn-stats scp:data/${train_set}/feats.scp data/${train_set}/cmvn.ark
 
@@ -173,6 +174,29 @@ if [ ${stage} -le 2 ] && [ ${stop_stage} -ge 2 ]; then
     done
 fi
 
+
+# character level token -- written stage 6 
+dict=data/lang_1char/tr_${lang}_units.txt
+echo "dictionary: ${dict}"
+if [ ${stage} -le 6 ] && [ ${stop_stage} -ge 6 ]; then
+    echo "stage 6: Dictionary and Json Data Preparation using char"
+    mkdir -p data/lang_1char/
+    echo "<unk> 1" > ${dict} # <unk> must be 1, 0 will be used for "blank" in CTC
+    text2token.py -s 1 -n 1 data/tr_${lang}/text | cut -f 2- -d" " | tr " " "\n" \
+    | sort | uniq | grep -v -e '^\s*$' | awk '{print $0 " " NR+1}' >> ${dict}
+    wc -l ${dict}
+
+    # make json labels
+    data2json.sh --lang ${lang} --feat ${feat_tr_dir}/feats.scp \
+         data/tr_${lang} ${dict} > ${feat_tr_dir}/data.json
+    data2json.sh --lang ${lang} --feat ${feat_dt_dir}/feats.scp \
+         data/dt_${lang} ${dict} > ${feat_dt_dir}/data.json
+    for rtask in ${recog_set}; do
+        feat_recog_dir=${dumpdir}/${rtask}/delta${do_delta}
+        data2json.sh --feat ${feat_recog_dir}/feats.scp \
+            data/${rtask} ${dict} > ${feat_recog_dir}/data.json
+    done
+fi
 # You can skip this and remove --rnnlm option in the recognition (stage 5)
 if [ -z ${lmtag} ]; then
     lmtag=$(basename ${lm_config%.*})

@@ -1,0 +1,1 @@
+run.pl: job failed, log is in exp/tr_en_pytorch_train_rnn_transducer/train.log

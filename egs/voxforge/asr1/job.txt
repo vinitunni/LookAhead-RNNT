@@ -1,0 +1,7 @@
+jbsub -out logs/feature.txt -err logs/feature.err  -mem 50G -cores 2+4 -queue x86_24h "./run.sh  --stage -1 --stop-stage 2 --lang en"
+<<3286179>>
+
+jbsub -out logs/am.txt -err logs/am.err  -mem 50G -cores 1+1 -queue x86_24h -require v100 "./run.sh  --stage 3 --stop-stage 3 --lang en"
+<<<3322141>>>
+
+jbsub -out logs/am.txt -err logs/am.err  -mem 50G -cores 1+1 -queue x86_1h -require v100 interactive bash 

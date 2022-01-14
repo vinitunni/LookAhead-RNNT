@@ -1,0 +1,8 @@
+Traceback (most recent call last):
+  File "/dccstor/cssblr/shreya/speech_exp/ASR_E2E/egs/voxforge/asr1/../../../utils/average_checkpoints.py", line 137, in <module>
+    main()
+  File "/dccstor/cssblr/shreya/speech_exp/ASR_E2E/egs/voxforge/asr1/../../../utils/average_checkpoints.py", line 63, in main
+    last = sorted(args.snapshots, key=os.path.getmtime)
+  File "/u/skhare34/anaconda3/lib/python3.6/genericpath.py", line 55, in getmtime
+    return os.stat(filename).st_mtime
+FileNotFoundError: [Errno 2] No such file or directory: 'exp/tr_en_pytorch_train/results/snapshot.ep.*'
