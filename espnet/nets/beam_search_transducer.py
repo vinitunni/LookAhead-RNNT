@@ -509,7 +509,7 @@ class BeamSearchTransducer:
                         convolved_ams = torch.stack([convolved_am[x[0]] for x in B_enc_out])
                         gu_temp=self.joint_network.future_context_combine_network(torch.cat((beam_dec_out,convolved_ams),dim=-1))
                         beam_dec_out = gu_temp
-                    elif self.joint_network.future_context_lm_type == 'greedy_lookahead_aligned' or self.joint_network.future_context_lm_type == 'greedy_lookahead_aligned_lev_dist':
+                    elif self.joint_network.future_context_lm_type == 'greedy_lookahead_aligned' or self.joint_network.future_context_lm_type == 'greedy_lookahead_aligned_lev_dist'or self.joint_network.future_context_lm_type == 'greedy_lookahead_aligned_rapidfuzz':
                         greedy_outs = self.joint_network.lin_out(self.joint_network.lin_enc(enc_out)).argmax(dim=-1)
                         la_tokens = torch.stack([torch.cat([greedy_outs[x[0]:][greedy_outs[x[0]:]!=0][:self.joint_network.la_window],torch.zeros(self.joint_network.la_window,dtype=greedy_outs.dtype,device=greedy_outs.device)])[:self.joint_network.la_window] for x in B_enc_out])
                         init_b, _ = la_tokens.shape

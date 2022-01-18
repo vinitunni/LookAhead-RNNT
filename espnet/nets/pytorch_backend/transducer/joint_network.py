@@ -77,7 +77,7 @@ class JointNetwork(torch.nn.Module):
             elif self.future_context_lm_type.lower() == 'lstm':
                 self.future_context_conv_network = torch.nn.Conv1d(encoder_output_size, encoder_output_size, self.future_context_lm_kernel, padding=0)
                # print('Nothing to do here as conv am is combined at decoder stage') 
-            elif self.future_context_lm_type == 'greedy_lookahead_aligned' or  self.future_context_lm_type == 'greedy_lookahead_aligned_lev_dist':
+            elif self.future_context_lm_type == 'greedy_lookahead_aligned' or  self.future_context_lm_type == 'greedy_lookahead_aligned_lev_dist'or  self.future_context_lm_type == 'greedy_lookahead_aligned_rapidfuzz':
                 self.la_embed_size=la_embed_size
                 self.la_window=la_window
                 self.la_greedy_scheduled_sampling_probability=la_greedy_scheduled_sampling_probability   # With this probability, use the ground truth
@@ -228,6 +228,46 @@ class JointNetwork(torch.nn.Module):
                 if self.training:  # Perform scheduled sampling only during training
                     sched_samp = sched_samp.unsqueeze(1).expand(-1,T,-1,-1)
                     # sched_samp_rand = torch.rand(sched_samp.shape,device=la_tokens.device)   # Commented to enable teacher forcing at substring level instead of token level
+                la_tokens = self.embed_la(la_tokens).reshape(B,T,U,-1)
+                dec_out = dec_out.expand(-1,T,-1,-1)
+                dec_out = torch.cat([dec_out,la_tokens],dim=-1)
+                dec_out = self.future_context_combine_network(dec_out)
+            elif self.future_context_lm_type == 'greedy_lookahead_aligned_rapidfuzz' and len(enc_out.shape)>2:
+                from rapidfuzz import process, string_metric
+                am_outs = self.lin_out(self.lin_enc(enc_out)).argmax(dim=-1).squeeze(-1)  # after this, the size is B x T
+                B, T = am_outs.shape
+                U = dec_out.shape[2]
+                am_outs = torch.cat([am_outs,torch.zeros([B,1],dtype=am_outs.dtype,device=am_outs.device)],dim=-1)
+                la_tokens = torch.zeros(B,T,self.la_window,dtype=am_outs.dtype,device=am_outs.device)
+                for b in range(am_outs.shape[0]):
+                    for t in range(T):
+                        la_tokens[b,t] = torch.cat([am_outs[b,t+1:][am_outs[b,t+1:]!=0][:self.la_window],torch.zeros(self.la_window,device=enc_out.device,dtype=am_outs.dtype)])[:self.la_window]
+                if self.training:  # Perform scheduled sampling only during training
+                    target = torch.cat([target,torch.zeros([B,1],device=am_outs.device,dtype=target.dtype)],dim=-1)
+                    # sched_samp = torch.zeros([B,U,self.la_window],dtype=am_outs.dtype,device=am_outs.device)
+                    sets_tgt=[set() for _ in range(B)]
+                    dicts_tgt=[{} for _ in range(B)]
+                    for b in range(B):
+                        for u in range(U):
+                            temp_tokens = torch.cat([target[b,u:][:self.la_window],torch.zeros(self.la_window,device=enc_out.device,dtype=am_outs.dtype)])[:self.la_window]
+                            temp_chars = ''.join([char_list[x_tmp] for x_tmp in temp_tokens])
+                            if temp_chars not in dicts_tgt[b]:
+                                dicts_tgt[b][temp_chars]=temp_tokens
+                            sets_tgt[b].add(temp_chars)
+                    sched_samp_rand = torch.rand([B,T,U],device=la_tokens.device)
+                    la_tokens_temp = la_tokens.unsqueeze(-2).repeat(1,1,U,1)
+                    import numpy as np
+                    for b, t, u in np.nonzero(sched_samp_rand < self.la_greedy_scheduled_sampling_probability):
+                        temp_chars = ''.join([char_list[x_tmp] for x_tmp in la_tokens[b,t]])
+                        la_tokens_temp[b,t,u] = dicts_tgt[b][process.extract(temp_chars,sets_tgt[b],scorer=string_metric.normalized_levenshtein,limit=1)[0][0]]
+                    # for b in range(B):
+                    #     for t in range(T):
+                    #         for u in range(U):
+                    #             if sched_samp_rand[b,t,u] < self.la_greedy_scheduled_sampling_probability:
+                                    # temp_chars = ''.join([char_list[x_tmp] for x_tmp in la_tokens[b,t]])
+                                    # la_tokens_temp[b,t,u] = dicts_tgt[b][process.extract(temp_chars,sets_tgt[b],scorer=string_metric.normalized_levenshtein,limit=1)[0][0]]
+                del la_tokens
+                la_tokens =  la_tokens_temp
                 la_tokens = self.embed_la(la_tokens).reshape(B,T,U,-1)
                 dec_out = dec_out.expand(-1,T,-1,-1)
                 dec_out = torch.cat([dec_out,la_tokens],dim=-1)
