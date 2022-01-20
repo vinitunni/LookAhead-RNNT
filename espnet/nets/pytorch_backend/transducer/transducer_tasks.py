@@ -376,12 +376,15 @@ class TransducerTasks(torch.nn.Module):
         """
         loss_trans_LM, loss_trans_AM = 0.0,0.0
         if self.ILM_loss:
-            joint_out_LM = self.joint_network(torch.zeros_like(enc_out).unsqueeze(2), dec_out.unsqueeze(1),implicit=True)
+            if self.joint_network.future_context_lm and 'greedy' in self.joint_network.future_context_lm_type:
+                joint_out_LM = self.joint_network(enc_out.unsqueeze(2), dec_out.unsqueeze(1),target=target, char_list=self.char_list, implicit_lm=True)
+            else:
+                joint_out_LM = self.joint_network(torch.zeros_like(enc_out).unsqueeze(2), dec_out.unsqueeze(1),implicit_lm=True)
             loss_trans_LM = self.transducer_loss(joint_out_LM, target, t_len, u_len)
             loss_trans_LM /= joint_out_LM.size(0)
 
         if self.IAM_loss:
-            joint_out_AM = self.joint_network(enc_out.unsqueeze(2), torch.zeros_like(dec_out).unsqueeze(1),implicit=True)
+            joint_out_AM = self.joint_network(enc_out.unsqueeze(2), torch.zeros_like(dec_out).unsqueeze(1),implicit_am=True)
             loss_trans_AM = self.transducer_loss(joint_out_AM, target, t_len, u_len)
             loss_trans_AM /= joint_out_AM.size(0)
 
@@ -501,6 +504,7 @@ class TransducerTasks(torch.nn.Module):
             wer: Sentence-level WER score.
 
         """
+        self.char_list = char_list
         if self.use_symm_kl_div_loss:
             assert self.use_aux_transducer_loss
 

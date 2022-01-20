@@ -116,7 +116,8 @@ class JointNetwork(torch.nn.Module):
         enc_out: torch.Tensor,
         dec_out: torch.Tensor,
         target:torch.Tensor = torch.zeros(1),
-        implicit: bool = False,
+        implicit_lm: bool = False,
+        implicit_am: bool = False,
         is_aux: bool = False,
         quantization: bool = False,
         char_list: list=[]
@@ -133,15 +134,15 @@ class JointNetwork(torch.nn.Module):
             joint_out: Joint output state sequences. (B, T, U, D_out)
 
         """
-        if self.future_context_lm and not implicit:  #Added self.training to the condition as in beam search, a single state is passed along
-            if self.future_context_lm_type == 'linear' and len(enc_out.shape)>2:
+        if self.future_context_lm :  #Added self.training to the condition as in beam search, a single state is passed along
+            if self.future_context_lm_type == 'linear' and len(enc_out.shape)>2 and not (implicit_lm or implicit_am):
                 u_len = dec_out.shape[2]
                 t_len = enc_out.shape[1]
                 zero_pad = torch.nn.ConstantPad1d((0,self.future_context_lm_kernel-1),0)
                 convolved_am = self.future_context_conv_network(zero_pad(enc_out.squeeze(2).transpose(1,2))).transpose(1,2).unsqueeze(2)
                 gu_temp = self.future_context_combine_network(torch.cat((dec_out.expand(-1,t_len,-1,-1),convolved_am.expand(-1,-1,u_len,-1)),dim=-1))
                 dec_out = gu_temp
-            elif self.future_context_lm_type == 'greedy_lookahead_aligned' and len(enc_out.shape)>2:
+            elif self.future_context_lm_type == 'greedy_lookahead_aligned' and len(enc_out.shape)>2 and not implicit_am:
                 am_outs = self.lin_out(self.lin_enc(enc_out)).argmax(dim=-1).squeeze(-1)  # after this, the size is B x T
                 B, T = am_outs.shape
                 U = dec_out.shape[2]
@@ -165,7 +166,7 @@ class JointNetwork(torch.nn.Module):
                 dec_out = dec_out.expand(-1,T,-1,-1)
                 dec_out = torch.cat([dec_out,la_tokens],dim=-1)
                 dec_out = self.future_context_combine_network(dec_out)
-            elif self.future_context_lm_type == 'greedy_lookahead_acoustic_aligned' and len(enc_out.shape)>2:
+            elif self.future_context_lm_type == 'greedy_lookahead_acoustic_aligned' and len(enc_out.shape)>2 and not implicit_am:
                 am_outs = self.lin_out(self.lin_enc(enc_out)).argmax(dim=-1).squeeze(-1)  # after this, the size is B x T
                 B, T = am_outs.shape
                 U = dec_out.shape[2]
@@ -180,7 +181,7 @@ class JointNetwork(torch.nn.Module):
                 dec_out = dec_out.expand(-1,T,-1,-1)
                 dec_out = torch.cat([dec_out,la_tokens],dim=-1)
                 dec_out = self.future_context_combine_network(dec_out)
-            elif self.future_context_lm_type == 'greedy_lookahead_aligned_lev_dist' and len(enc_out.shape)>2:
+            elif self.future_context_lm_type == 'greedy_lookahead_aligned_lev_dist' and len(enc_out.shape)>2 and not implicit_am:
                 am_outs = self.lin_out(self.lin_enc(enc_out)).argmax(dim=-1).squeeze(-1)  # after this, the size is B x T
                 B, T = am_outs.shape
                 U = dec_out.shape[2]
@@ -232,7 +233,7 @@ class JointNetwork(torch.nn.Module):
                 dec_out = dec_out.expand(-1,T,-1,-1)
                 dec_out = torch.cat([dec_out,la_tokens],dim=-1)
                 dec_out = self.future_context_combine_network(dec_out)
-            elif self.future_context_lm_type == 'greedy_lookahead_aligned_rapidfuzz' and len(enc_out.shape)>2:
+            elif self.future_context_lm_type == 'greedy_lookahead_aligned_rapidfuzz' and len(enc_out.shape)>2 and not implicit_am:
                 from rapidfuzz import process, string_metric
                 am_outs = self.lin_out(self.lin_enc(enc_out)).argmax(dim=-1).squeeze(-1)  # after this, the size is B x T
                 B, T = am_outs.shape
@@ -291,6 +292,8 @@ class JointNetwork(torch.nn.Module):
                 #TODO
                 raise
             joint_out = self.joint_activation(etas * self.lin_enc(enc_out).expand(-1,-1,u_len,-1)+(1-etas)*self.lin_dec(dec_out).expand(-1,t_len,-1,-1))
+        elif implicit_lm and "greedy" in self.future_context_lm_type:
+            joint_out = self.joint_activation(self.lin_dec(dec_out).expand(-1,enc_out.shape[1],-1,-1))
         else:
             joint_out = self.joint_activation(
                 self.lin_enc(enc_out) + self.lin_dec(dec_out)
