@@ -527,6 +527,8 @@ def get_parser(parser=None, required=True):
     parser.add_argument("--la-window", type=int, default=4, help="Number of look ahead tokens")
     parser.add_argument("--la-greedy-scheduled-sampling-probability", type=float, default=0.2, help="With this probability, we will do teacher forcing")
     parser.add_argument("--la-teacher-forcing-dist-threshold", type=float, default=0.1, help="Distance threshold for teacher forcing")
+    parser.add_argument("--acoustic-warm-start", type=bool, default=False, help="Whether warm start for the acoustic part shouldbe enabled. This is done by only training forthe implicit LM loss at the start")
+    parser.add_argument("--acoustic-warm-start-epoch", type=int, default=2, help="The epoch number from which to start acoustic warm start")
 
     
     return parser

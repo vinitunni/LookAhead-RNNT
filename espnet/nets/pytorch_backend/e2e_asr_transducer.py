@@ -278,17 +278,17 @@ class E2E(ASRInterface, torch.nn.Module):
         except:
             ILM_loss=False
         try:
-            IAM_loss=args.IAM_loss
+            self.IAM_loss=args.IAM_loss
         except:
-            IAM_loss=False
+            self.IAM_loss=False
         try:
             ILM_loss_weight=args.ILM_loss_weight
         except:
             ILM_loss_weight=0
         try:
-            IAM_loss_weight=args.IAM_loss_weight
+            self.IAM_loss_weight=args.IAM_loss_weight
         except:
-            IAM_loss_weight=0
+            self.IAM_loss_weight=0
         try:
             eta_mixing=args.eta_mixing
         except:
@@ -334,6 +334,13 @@ class E2E(ASRInterface, torch.nn.Module):
             self.la_teacher_forcing_dist_threshold = args.la_teacher_forcing_dist_threshold
         except:
             self.la_teacher_forcing_dist_threshold = 0.1
+
+        try:
+            self.acoustic_warm_start = args.acoustic_warm_start
+            self.acoustic_warm_start_epoch = args.acoustic_warm_start_epoch
+        except:
+            self.acoustic_warm_start = False
+            self.acoustic_warm_start_epoch = 2
 
         if args.dtype == "custom":
             if args.dec_block_arch is None:
@@ -391,9 +398,9 @@ class E2E(ASRInterface, torch.nn.Module):
             ignore_id=ignore_id,
             training=training,
             ILM_loss=ILM_loss,
-            IAM_loss=IAM_loss,
+            IAM_loss=self.IAM_loss,
             ILM_loss_weight=ILM_loss_weight,
-            IAM_loss_weight=IAM_loss_weight,
+            IAM_loss_weight=self.IAM_loss_weight,
             eta_mixing=eta_mixing,
             eta_mixing_type=eta_mixing_type,
             future_context_lm=future_context_lm,
@@ -440,6 +447,8 @@ class E2E(ASRInterface, torch.nn.Module):
 
         self.loss = None
         self.rnnlm = None
+
+        self.current_epoch = 0
 
     def default_parameters(self, args: Namespace):
         """Initialize/reset parameters for Transducer.
@@ -522,7 +531,10 @@ class E2E(ASRInterface, torch.nn.Module):
                 enc_out, self.transducer_tasks.get_target()
             )
 
-        self.loss = sum(losses)
+        if not(self.acoustic_warm_start) or (self.current_epoch >= self.acoustic_warm_start_epoch):
+            self.loss = sum(losses)
+        else:
+            self.loss = losses[6]/self.IAM_loss_weight  # 7th loss component is IAM loss
         loss_data = float(self.loss)
 
         if not math.isnan(loss_data):

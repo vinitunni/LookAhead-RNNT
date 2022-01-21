@@ -174,6 +174,9 @@ class CustomUpdater(StandardUpdater):
         train_iter = self.get_iterator("main")
         optimizer = self.get_optimizer("main")
         epoch = train_iter.epoch
+        if hasattr(self.model, "current_epoch"):
+            self.model.current_epoch = epoch    # Apparenty, this is called at every iteration. Makes sense as grad clipping should be done as so
+
 
         # Get the next batch (a list of json files)
         batch = train_iter.next()
