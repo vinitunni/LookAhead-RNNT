@@ -485,7 +485,7 @@ class BeamSearchTransducer:
 
             if B_:
                 # First get output from LSTM
-                if not self.joint_network.future_context_lm or self.joint_network.future_context_lm_type == 'linear' or self.joint_network.future_context_lm_type == 'greedy_lookahead_aligned' or self.joint_network.future_context_lm_type == 'greedy_lookahead_acoustic_aligned':
+                if not self.joint_network.future_context_lm or self.joint_network.future_context_lm_type == 'linear' or self.joint_network.future_context_lm_type == 'greedy_lookahead_aligned' or self.joint_network.future_context_lm_type == 'greedy_lookahead_acoustic_aligned' or self.joint_network.future_context_lm_type == 'greedy_lookahead_aligned_tokentoss' or self.joint_network.future_context_lm_type == 'greedy_lookahead_aligned_rapidfuzz':
                     beam_dec_out, beam_state, beam_lm_tokens = self.decoder.batch_score(
                         B_,
                         beam_state,
@@ -509,7 +509,7 @@ class BeamSearchTransducer:
                         convolved_ams = torch.stack([convolved_am[x[0]] for x in B_enc_out])
                         gu_temp=self.joint_network.future_context_combine_network(torch.cat((beam_dec_out,convolved_ams),dim=-1))
                         beam_dec_out = gu_temp
-                    elif self.joint_network.future_context_lm_type == 'greedy_lookahead_aligned' or self.joint_network.future_context_lm_type == 'greedy_lookahead_aligned_lev_dist'or self.joint_network.future_context_lm_type == 'greedy_lookahead_aligned_rapidfuzz':
+                    elif self.joint_network.future_context_lm_type == 'greedy_lookahead_aligned' or self.joint_network.future_context_lm_type == 'greedy_lookahead_aligned_lev_dist' or self.joint_network.future_context_lm_type == 'greedy_lookahead_aligned_rapidfuzz' or self.joint_network.future_context_lm_type == 'greedy_lookahead_aligned_tokentoss':
                         greedy_outs = self.joint_network.lin_out(self.joint_network.lin_enc(enc_out)).argmax(dim=-1)
                         la_tokens = torch.stack([torch.cat([greedy_outs[x[0]:][greedy_outs[x[0]:]!=0][:self.joint_network.la_window],torch.zeros(self.joint_network.la_window,dtype=greedy_outs.dtype,device=greedy_outs.device)])[:self.joint_network.la_window] for x in B_enc_out])
                         init_b, _ = la_tokens.shape
