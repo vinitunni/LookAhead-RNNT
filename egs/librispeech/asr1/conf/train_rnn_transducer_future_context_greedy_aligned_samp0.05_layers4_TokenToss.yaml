@@ -1,0 +1,39 @@
+# minibatch related
+batch-size: 6
+maxlen-in: 600
+maxlen-out: 150
+
+# optimization related
+criterion: loss
+early-stop-criterion: "validation/main/loss"
+sortagrad: 0
+opt: adadelta
+epochs: 20
+patience: 3
+
+# network architecture
+## encoder related
+etype: vggblstm
+elayers: 4
+eunits: 320
+dropout-rate: 0.4
+## decoder related
+dtype: lstm
+dlayers: 1
+dec-embed-dim: 256
+dunits: 256
+dropout-rate-decoder: 0.2
+dropout-rate-embed-decoder: 0.2
+## joint network related
+joint-dim: 256
+future-context-lm: True
+future-context-lm-type: 'greedy_lookahead_aligned_tokentoss'
+future-context-lm-linear-layers: 4
+la-window: 4
+la-greedy-scheduled-sampling-probability: 0.05
+la-embed-size: 256
+
+IAM-loss: True
+IAM-loss-weight: 0.125
+# transducer related
+model-module: "espnet.nets.pytorch_backend.e2e_asr_transducer:E2E"
