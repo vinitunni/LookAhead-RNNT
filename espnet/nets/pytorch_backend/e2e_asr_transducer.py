@@ -341,6 +341,10 @@ class E2E(ASRInterface, torch.nn.Module):
         except:
             self.acoustic_warm_start = False
             self.acoustic_warm_start_epoch = 2
+        try:
+            self.topK = args.topK
+        except:
+            self.topK = 5
 
         if args.dtype == "custom":
             if args.dec_block_arch is None:
@@ -412,6 +416,7 @@ class E2E(ASRInterface, torch.nn.Module):
             la_window=self.la_window,
             la_greedy_scheduled_sampling_probability=self.la_greedy_scheduled_sampling_probability,
             la_teacher_forcing_dist_threshold = self.la_teacher_forcing_dist_threshold,
+            topK = self.topK, 
 
         )
 

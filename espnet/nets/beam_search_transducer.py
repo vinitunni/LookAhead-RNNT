@@ -485,7 +485,7 @@ class BeamSearchTransducer:
 
             if B_:
                 # First get output from LSTM
-                if not self.joint_network.future_context_lm or self.joint_network.future_context_lm_type == 'linear' or self.joint_network.future_context_lm_type == 'greedy_lookahead_aligned' or self.joint_network.future_context_lm_type == 'greedy_lookahead_acoustic_aligned' or self.joint_network.future_context_lm_type == 'greedy_lookahead_aligned_tokentoss' or self.joint_network.future_context_lm_type == 'greedy_lookahead_aligned_rapidfuzz':
+                if not self.joint_network.future_context_lm or self.joint_network.future_context_lm_type == 'linear' or self.joint_network.future_context_lm_type == 'greedy_lookahead_aligned' or self.joint_network.future_context_lm_type == 'greedy_lookahead_acoustic_aligned' or self.joint_network.future_context_lm_type == 'greedy_lookahead_aligned_tokentoss' or self.joint_network.future_context_lm_type == 'greedy_lookahead_aligned_rapidfuzz' or self.joint_network.future_context_lm_type == 'greedy_lookahead_aligned_topK':
                     beam_dec_out, beam_state, beam_lm_tokens = self.decoder.batch_score(
                         B_,
                         beam_state,
@@ -521,6 +521,18 @@ class BeamSearchTransducer:
                         la_tokens = torch.stack([torch.cat([enc_out[x[0]:][greedy_outs[x[0]:]!=0][:self.joint_network.la_window],torch.zeros([self.joint_network.la_window,enc_out.shape[-1]],dtype=greedy_outs.dtype,device=greedy_outs.device)])[:self.joint_network.la_window] for x in B_enc_out])
                         init_b, _ , _ = la_tokens.shape
                         la_tokens = la_tokens.reshape(init_b,-1)
+                        beam_dec_out = torch.cat([beam_dec_out,la_tokens],dim=-1)
+                        beam_dec_out = self.joint_network.future_context_combine_network(beam_dec_out)
+                    elif self.joint_network.future_context_lm_type == 'greedy_lookahead_aligned_topK': 
+                        import pdb; pdb.set_trace()
+                        greedy_outs_topk = torch.softmax(self.joint_network.lin_out(self.joint_network.lin_enc(enc_out)),dim=-1)
+                        topk, indices = torch.topk(greedy_outs_topk, k = 5)
+                        # topk, indices = torch.topk(greedy_outs_topk, k = self.joint_network.topK)
+                        topk = torch.multinomial(topk,num_samples=1)
+                        greedy_outs = torch.gather(input=indices,dim=-1,index=topk)
+                        la_tokens = torch.stack([torch.cat([greedy_outs[x[0]:][greedy_outs[x[0]:]!=0][:self.joint_network.la_window],torch.zeros(self.joint_network.la_window,dtype=greedy_outs.dtype,device=greedy_outs.device)])[:self.joint_network.la_window] for x in B_enc_out])
+                        init_b, _ = la_tokens.shape
+                        la_tokens = self.joint_network.embed_la(la_tokens).reshape(init_b,-1)
                         beam_dec_out = torch.cat([beam_dec_out,la_tokens],dim=-1)
                         beam_dec_out = self.joint_network.future_context_combine_network(beam_dec_out)
 

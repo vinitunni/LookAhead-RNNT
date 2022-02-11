@@ -529,6 +529,7 @@ def get_parser(parser=None, required=True):
     parser.add_argument("--la-teacher-forcing-dist-threshold", type=float, default=0.1, help="Distance threshold for teacher forcing")
     parser.add_argument("--acoustic-warm-start", type=bool, default=False, help="Whether warm start for the acoustic part shouldbe enabled. This is done by only training forthe implicit LM loss at the start")
     parser.add_argument("--acoustic-warm-start-epoch", type=int, default=2, help="The epoch number from which to start acoustic warm start")
+    parser.add_argument("--topK", type=int, default=5, help="Value of K for topK sampling in greedy lookahead")
 
     
     return parser
