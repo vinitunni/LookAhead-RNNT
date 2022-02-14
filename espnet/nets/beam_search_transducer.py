@@ -524,7 +524,6 @@ class BeamSearchTransducer:
                         beam_dec_out = torch.cat([beam_dec_out,la_tokens],dim=-1)
                         beam_dec_out = self.joint_network.future_context_combine_network(beam_dec_out)
                     elif self.joint_network.future_context_lm_type == 'greedy_lookahead_aligned_topK': 
-                        import pdb; pdb.set_trace()
                         greedy_outs_topk = torch.softmax(self.joint_network.lin_out(self.joint_network.lin_enc(enc_out)),dim=-1)
                         topk, indices = torch.topk(greedy_outs_topk, k = 5)
                         # topk, indices = torch.topk(greedy_outs_topk, k = self.joint_network.topK)
