@@ -112,6 +112,17 @@ class JointNetwork(torch.nn.Module):
                         future_context_linear_list.append(torch.nn.Tanh())
                     future_context_linear_list.append(torch.nn.Linear(future_context_lm_units , decoder_output_size))
                     self.future_context_combine_network = torch.nn.Sequential(*future_context_linear_list)
+            elif self.future_context_lm_type == 'greedy_lookaround_transformer_aligned':
+                self.la_window = la_window    #assuming equidistant window in front and back.
+                from espnet.nets.pytorch_backend.transformer.attention import MultiHeadedAttention
+                # self.attention_heads = attention_heads
+                # self.attention_dim = attention_dim
+                # self.src_attention_dropout_rate = src_attention_dropout_rate
+                self.attention_heads = 4
+                self.attention_dim = self.lin_enc.out_features
+                self.src_attention_dropout_rate = 0.4
+                self.joint_attention_layer = MultiHeadedAttention(self.attention_heads, self.attention_dim, self.src_attention_dropout_rate)
+                
                 
 
     def forward(
@@ -324,6 +335,17 @@ class JointNetwork(torch.nn.Module):
                 dec_out = dec_out.expand(-1,T,-1,-1)
                 dec_out = torch.cat([dec_out,la_tokens],dim=-1)
                 dec_out = self.future_context_combine_network(dec_out)
+            elif self.future_context_lm_type == 'greedy_lookaround_transformer_aligned' and len(enc_out.shape)>2 and not implicit_am:
+                B, T, _, D = enc_out.shape
+                _, _, U, D2 = dec_out.shape
+                enc_outs_padded = torch.cat([torch.zeros(B,self.la_window,1,D,device=enc_out.device),enc_out,torch.zeros(B,self.la_window,1,D,device=enc_out.device)],dim=1)
+                trans_inputs = self.lin_enc(enc_outs_padded.squeeze(-2).unfold(dimension=1,size=1+(2*self.la_window),step=1).transpose(-1,-2).reshape(B*T,-1,D))
+                # trans_inputs = trans_inputs.expand(-1, -1, U, -1, -1).reshape(-1, D, 1+(2*self.la_window))
+                dec_out = dec_out.expand(-1,T,-1,-1).reshape(B*T, -1, D2)
+                temp_attended = self.joint_attention_layer(query=self.lin_dec(dec_out), key=trans_inputs, value=trans_inputs,mask=None)
+                enc_out = temp_attended.reshape(B,T,U,-1)
+                dec_out = dec_out.reshape(B,T,U,-1)
+                print("Dummy")
                     
         if is_aux:
             joint_out = self.joint_activation(enc_out + self.lin_dec(dec_out))
@@ -345,6 +367,10 @@ class JointNetwork(torch.nn.Module):
             joint_out = self.joint_activation(etas * self.lin_enc(enc_out).expand(-1,-1,u_len,-1)+(1-etas)*self.lin_dec(dec_out).expand(-1,t_len,-1,-1))
         elif implicit_lm and "greedy" in self.future_context_lm_type:
             joint_out = self.joint_activation(self.lin_dec(dec_out).expand(-1,enc_out.shape[1],-1,-1))
+        elif self.future_context_lm_type == 'greedy_lookaround_transformer_aligned' and not implicit_lm and not implicit_am:
+            joint_out = self.joint_activation(
+                enc_out + self.lin_dec(dec_out)
+            )
         else:
             joint_out = self.joint_activation(
                 self.lin_enc(enc_out) + self.lin_dec(dec_out)
