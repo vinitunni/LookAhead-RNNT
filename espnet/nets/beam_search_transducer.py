@@ -450,6 +450,9 @@ class BeamSearchTransducer:
                 zero_pad = torch.nn.ConstantPad1d((0,self.joint_network.future_context_lm_kernel-1),0)
                 convolved_am = self.joint_network.future_context_conv_network(zero_pad(enc_out.transpose(1,0)).unsqueeze(0)).transpose(1,2).squeeze(0)
                 torch.cuda.empty_cache()
+            elif self.joint_network.future_context_lm_type == 'greedy_lookaround_transformer_aligned':
+                enc_out =  torch.cat([torch.zeros(self.joint_network.la_window,enc_out.size(-1),device=enc_out.device),enc_out,torch.zeros(self.joint_network.la_window,enc_out.size(-1),device=enc_out.device)],dim=0)
+                enc_out = enc_out.unfold(dimension=1,size=1+(2*self.joint_network.la_window),step=1).transpose(-1,-2)
             
 
         beam_state = self.decoder.init_state(beam)
@@ -485,7 +488,8 @@ class BeamSearchTransducer:
 
             if B_:
                 # First get output from LSTM
-                if not self.joint_network.future_context_lm or self.joint_network.future_context_lm_type == 'linear' or self.joint_network.future_context_lm_type == 'greedy_lookahead_aligned' or self.joint_network.future_context_lm_type == 'greedy_lookahead_acoustic_aligned' or self.joint_network.future_context_lm_type == 'greedy_lookahead_aligned_tokentoss' or self.joint_network.future_context_lm_type == 'greedy_lookahead_aligned_rapidfuzz' or self.joint_network.future_context_lm_type == 'greedy_lookahead_aligned_topK':
+                if not self.joint_network.future_context_lm or self.joint_network.future_context_lm_type == 'linear' or self.joint_network.future_context_lm_type == 'greedy_lookahead_aligned' or self.joint_network.future_context_lm_type == 'greedy_lookahead_acoustic_aligned' or self.joint_network.future_context_lm_type == 'greedy_lookahead_aligned_tokentoss' or self.joint_network.future_context_lm_type == 'greedy_lookahead_aligned_rapidfuzz' or self.joint_network.future_context_lm_type == 'greedy_lookahead_aligned_topK' or self.joint_network.future_context_lm_type == 'greedy_lookaround_transformer_aligned':
+                    
                     beam_dec_out, beam_state, beam_lm_tokens = self.decoder.batch_score(
                         B_,
                         beam_state,
@@ -535,7 +539,11 @@ class BeamSearchTransducer:
                         beam_dec_out = torch.cat([beam_dec_out,la_tokens],dim=-1)
                         beam_dec_out = self.joint_network.future_context_combine_network(beam_dec_out)
 
+                        
+
                 beam_enc_out = torch.stack([x[1] for x in B_enc_out])
+                if self.joint_network.future_context_lm_type == 'greedy_lookaround_transformer_aligned':
+                    beam_enc_out = self.joint_network.joint_attention_layer(query=beam_dec_out,key=beam_enc_out,value=beam_enc_out,mask=None)
 
                 beam_logp = torch.log_softmax(
                     self.joint_network(beam_enc_out, beam_dec_out)
