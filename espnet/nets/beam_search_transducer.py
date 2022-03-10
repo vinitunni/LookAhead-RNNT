@@ -452,7 +452,7 @@ class BeamSearchTransducer:
                 torch.cuda.empty_cache()
             elif self.joint_network.future_context_lm_type == 'greedy_lookaround_transformer_aligned':
                 enc_out =  torch.cat([torch.zeros(self.joint_network.la_window,enc_out.size(-1),device=enc_out.device),enc_out,torch.zeros(self.joint_network.la_window,enc_out.size(-1),device=enc_out.device)],dim=0)
-                enc_out = enc_out.unfold(dimension=1,size=1+(2*self.joint_network.la_window),step=1).transpose(-1,-2)
+                enc_out = enc_out.unfold(dimension=0,size=1+(2*self.joint_network.la_window),step=1).transpose(-1,-2)
             
 
         beam_state = self.decoder.init_state(beam)
@@ -543,7 +543,7 @@ class BeamSearchTransducer:
 
                 beam_enc_out = torch.stack([x[1] for x in B_enc_out])
                 if self.joint_network.future_context_lm_type == 'greedy_lookaround_transformer_aligned':
-                    beam_enc_out = self.joint_network.joint_attention_layer(query=beam_dec_out,key=beam_enc_out,value=beam_enc_out,mask=None)
+                    beam_enc_out = self.joint_network.joint_attention_layer(query=beam_dec_out.unsqueeze(0),key=self.joint_network.lin_enc(beam_enc_out),value=self.joint_network.lin_enc(beam_enc_out),mask=None).squeeze(0)
 
                 beam_logp = torch.log_softmax(
                     self.joint_network(beam_enc_out, beam_dec_out)
