@@ -326,6 +326,10 @@ class E2E(ASRInterface, torch.nn.Module):
         except:
            self.la_window=4
         try:
+           self.la_window_left=args.la_window_left
+        except:
+           self.la_window_left=0
+        try:
            self.la_greedy_scheduled_sampling_probability=args.la_greedy_scheduled_sampling_probability
         except:
            self.la_greedy_scheduled_sampling_probability=0.2
@@ -414,6 +418,7 @@ class E2E(ASRInterface, torch.nn.Module):
             future_context_lm_linear_units=self.future_context_lm_linear_units,
             la_embed_size=self.la_embed_size,
             la_window=self.la_window,
+            la_window_left=self.la_window_left,
             la_greedy_scheduled_sampling_probability=self.la_greedy_scheduled_sampling_probability,
             la_teacher_forcing_dist_threshold = self.la_teacher_forcing_dist_threshold,
             topK = self.topK, 

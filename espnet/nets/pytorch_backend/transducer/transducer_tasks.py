@@ -54,6 +54,7 @@ class TransducerTasks(torch.nn.Module):
         future_context_lm_linear_units=256,
         la_embed_size=128,
         la_window=4,
+        la_window_left=0,
         la_greedy_scheduled_sampling_probability=0.2,
         la_teacher_forcing_dist_threshold=0.1,
         topK=5,
@@ -112,7 +113,7 @@ class TransducerTasks(torch.nn.Module):
             output_dim, encoder_dim, decoder_dim, joint_dim, joint_activation_type,
             eta_mixing, eta_mixing_type, future_context_lm, future_context_lm_kernel, future_context_lm_type,
             future_context_lm_linear_layers, future_context_lm_linear_units,
-            la_embed_size, la_window, la_greedy_scheduled_sampling_probability, la_teacher_forcing_dist_threshold, topK
+            la_embed_size, la_window, la_window_left, la_greedy_scheduled_sampling_probability, la_teacher_forcing_dist_threshold, topK
         )
 
         if training:

@@ -33,7 +33,7 @@ class JointNetwork(torch.nn.Module):
         future_context_lm_units=256,
         la_embed_size=128,
         la_window=4,
-        la_window_left=2,    #change after testing
+        la_window_left=0, 
         la_greedy_scheduled_sampling_probability=0.2,
         la_teacher_forcing_dist_threshold=0.10,
         topK=5
@@ -125,11 +125,10 @@ class JointNetwork(torch.nn.Module):
                 self.joint_attention_layer = MultiHeadedAttention(self.attention_heads, self.attention_dim, self.src_attention_dropout_rate)
             elif self.future_context_lm_type == 'greedy_lookaround_aligned':
                 from espnet.nets.pytorch_backend.transformer.attention import MultiHeadedAttention
-                self.la_embed_size=la_embed_size+10
+                self.la_embed_size=la_embed_size
                 self.embed_to_lm = torch.nn.Linear(self.la_embed_size,joint_space_size)
                 # self.la_embed_size=joint_space_size
                 self.la_window_right=la_window
-                la_window_left=2
                 self.la_window_left = la_window_left  # Left is exclusive of current time step
                 self.la_greedy_scheduled_sampling_probability=la_greedy_scheduled_sampling_probability   # With this probability, use the ground truth
                 self.la_teacher_forcing_dist_threshold = la_teacher_forcing_dist_threshold

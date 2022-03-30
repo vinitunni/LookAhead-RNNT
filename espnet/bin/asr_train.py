@@ -525,6 +525,7 @@ def get_parser(parser=None, required=True):
     parser.add_argument("--future-context-lm-linear-units", type=int, default=256, help="number of neurons for linear projection of look ahead")
     parser.add_argument("--la-embed-size", type=int, default=128, help="Size of embedding for lookahead tokens")
     parser.add_argument("--la-window", type=int, default=4, help="Number of look ahead tokens")
+    parser.add_argument("--la-window-left", type=int, default=0, help="Number of look behind tokens")
     parser.add_argument("--la-greedy-scheduled-sampling-probability", type=float, default=0.2, help="With this probability, we will do teacher forcing")
     parser.add_argument("--la-teacher-forcing-dist-threshold", type=float, default=0.1, help="Distance threshold for teacher forcing")
     parser.add_argument("--acoustic-warm-start", type=bool, default=False, help="Whether warm start for the acoustic part shouldbe enabled. This is done by only training forthe implicit LM loss at the start")
