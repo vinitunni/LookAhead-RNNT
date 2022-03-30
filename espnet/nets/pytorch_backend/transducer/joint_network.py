@@ -380,7 +380,7 @@ class JointNetwork(torch.nn.Module):
                 la_tokens = torch.zeros([B,T,int(self.la_window_right + self.la_window_left)],dtype=am_outs.dtype,device=am_outs.device)
                 for b in range(am_outs.shape[0]):
                     for t in range(T):
-                        la_tokens[b,t] = torch.cat([torch.cat([torch.zeros(int(self.la_window_left),device=enc_out.device,dtype=am_outs.dtype),am_outs[b,:t+1][am_outs[b,:t+1]!=0][:self.la_window_left]])[:self.la_window_left],torch.cat([am_outs[b,t+1:][am_outs[b,t+1:]!=0][:self.la_window_right],torch.zeros(self.la_window_right,device=enc_out.device,dtype=am_outs.dtype)])[:self.la_window_right]])
+                        la_tokens[b,t] = torch.cat([torch.cat([torch.zeros(int(self.la_window_left),device=enc_out.device,dtype=am_outs.dtype),am_outs[b,:t+1][am_outs[b,:t+1]!=0][-self.la_window_left:]])[-self.la_window_left:],torch.cat([am_outs[b,t+1:][am_outs[b,t+1:]!=0][:self.la_window_right],torch.zeros(self.la_window_right,device=enc_out.device,dtype=am_outs.dtype)])[:self.la_window_right]])
                 la_tokens =  la_tokens.unsqueeze(-2).expand(-1,-1,U,-1)   # Shape here is B x T x U x embed*num_tokens
                 la_tokens = self.embed_la(la_tokens).reshape(B,T,U,(self.la_window_left+self.la_window_right),-1)
                 dec_out = dec_out.expand(-1,T,-1,-1).reshape(B*T,-1,D2)
