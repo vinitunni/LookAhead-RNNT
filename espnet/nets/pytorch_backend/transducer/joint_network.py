@@ -33,6 +33,7 @@ class JointNetwork(torch.nn.Module):
         future_context_lm_units=256,
         la_embed_size=128,
         la_window=4,
+        la_window_left=2,    #change after testing
         la_greedy_scheduled_sampling_probability=0.2,
         la_teacher_forcing_dist_threshold=0.10,
         topK=5
@@ -118,6 +119,32 @@ class JointNetwork(torch.nn.Module):
                 # self.attention_heads = attention_heads
                 # self.attention_dim = attention_dim
                 # self.src_attention_dropout_rate = src_attention_dropout_rate
+                self.attention_heads = 4
+                self.attention_dim = self.lin_enc.out_features
+                self.src_attention_dropout_rate = 0.4
+                self.joint_attention_layer = MultiHeadedAttention(self.attention_heads, self.attention_dim, self.src_attention_dropout_rate)
+            elif self.future_context_lm_type == 'greedy_lookaround_aligned':
+                from espnet.nets.pytorch_backend.transformer.attention import MultiHeadedAttention
+                self.la_embed_size=la_embed_size+10
+                self.embed_to_lm = torch.nn.Linear(self.la_embed_size,joint_space_size)
+                # self.la_embed_size=joint_space_size
+                self.la_window_right=la_window
+                la_window_left=2
+                self.la_window_left = la_window_left  # Left is exclusive of current time step
+                self.la_greedy_scheduled_sampling_probability=la_greedy_scheduled_sampling_probability   # With this probability, use the ground truth
+                self.la_teacher_forcing_dist_threshold = la_teacher_forcing_dist_threshold
+                self.embed_la = torch.nn.Embedding(joint_output_size, self.la_embed_size, padding_idx=0)
+                if future_context_lm_linear_layers == 1:
+                    self.future_context_combine_network = torch.nn.Linear(decoder_output_size*2 , decoder_output_size)
+                else:
+                    future_context_linear_list = []
+                    future_context_linear_list.append(torch.nn.Linear(decoder_output_size+self.la_embed_size , future_context_lm_units))
+                    future_context_linear_list.append(torch.nn.Tanh())
+                    for i in range(future_context_lm_linear_layers-2):
+                        future_context_linear_list.append(torch.nn.Linear(future_context_lm_units , future_context_lm_units))
+                        future_context_linear_list.append(torch.nn.Tanh())
+                    future_context_linear_list.append(torch.nn.Linear(future_context_lm_units , decoder_output_size))
+                    self.future_context_combine_network = torch.nn.Sequential(*future_context_linear_list)
                 self.attention_heads = 4
                 self.attention_dim = self.lin_enc.out_features
                 self.src_attention_dropout_rate = 0.4
@@ -345,7 +372,25 @@ class JointNetwork(torch.nn.Module):
                 temp_attended = self.joint_attention_layer(query=self.lin_dec(dec_out), key=trans_inputs, value=trans_inputs,mask=None)
                 enc_out = temp_attended.reshape(B,T,U,-1)
                 dec_out = dec_out.reshape(B,T,U,-1)
-                print("Dummy")
+            elif self.future_context_lm_type == 'greedy_lookaround_aligned' and len(enc_out.shape)>2 and not implicit_am:
+                am_outs = self.lin_out(self.lin_enc(enc_out)).argmax(dim=-1).squeeze(-1)  # after this, the size is B x T
+                B, T = am_outs.shape
+                _,_,U,D2 = dec_out.shape
+                D = enc_out.shape[-1]
+                am_outs = torch.cat([am_outs,torch.zeros([B,1],dtype=am_outs.dtype,device=am_outs.device)],dim=-1)
+                la_tokens = torch.zeros([B,T,int(self.la_window_right + self.la_window_left)],dtype=am_outs.dtype,device=am_outs.device)
+                for b in range(am_outs.shape[0]):
+                    for t in range(T):
+                        la_tokens[b,t] = torch.cat([torch.cat([torch.zeros(int(self.la_window_left),device=enc_out.device,dtype=am_outs.dtype),am_outs[b,:t+1][am_outs[b,:t+1]!=0][:self.la_window_left]])[:self.la_window_left],torch.cat([am_outs[b,t+1:][am_outs[b,t+1:]!=0][:self.la_window_right],torch.zeros(self.la_window_right,device=enc_out.device,dtype=am_outs.dtype)])[:self.la_window_right]])
+                la_tokens =  la_tokens.unsqueeze(-2).expand(-1,-1,U,-1)   # Shape here is B x T x U x embed*num_tokens
+                la_tokens = self.embed_la(la_tokens).reshape(B,T,U,(self.la_window_left+self.la_window_right),-1)
+                dec_out = dec_out.expand(-1,T,-1,-1).reshape(B*T,-1,D2)
+                la_tokens = la_tokens.reshape(B*T,-1,self.la_embed_size)
+                la_attended = self.joint_attention_layer(query=self.lin_dec(dec_out),key=self.embed_to_lm(la_tokens),value=self.embed_to_lm(la_tokens), mask=None)
+                dec_out = dec_out.reshape(B,T,U,-1)
+                la_attended = la_attended.reshape(B,T,U,-1)
+                dec_out = torch.cat([dec_out,la_attended],dim=-1)
+                dec_out = self.future_context_combine_network(dec_out)
                     
         if is_aux:
             joint_out = self.joint_activation(enc_out + self.lin_dec(dec_out))
