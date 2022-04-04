@@ -1,0 +1,68 @@
+# minibatch related
+batch-size: 10
+maxlen-in: 200
+maxlen-out: 100
+
+# optimization related
+criterion: loss
+early-stop-criterion: "validation/main/loss"
+sortagrad: 0
+opt: noam
+noam-lr: 10.0
+noam-adim: 256
+transformer-lr: 5.0
+transformer-warmup-steps: 25000
+epochs: 100 # # 70 epochs give reasonable results
+patience: 0
+accum-grad: 8
+grad-clip: 5.0
+
+# network architecture
+## general
+custom-enc-positional-encoding-type: rel_pos
+custom-enc-self-attn-type: rel_self_attn
+custom-enc-pw-activation-type: swish
+## encoder related
+etype: custom
+custom-enc-input-layer: vgg2l
+custom-enc-input-dropout-rate: 0.3
+enc-block-arch:
+        - type: conformer
+          d_hidden: 256
+          d_ff: 1024
+          heads: 4
+          macaron_style: True
+          use_conv_mod: True
+          conv_mod_kernel: 15
+          dropout-rate: 0.3
+          att-dropout-rate: 0.3
+enc-block-repeat: 18
+## decoder related
+dtype: lstm
+dlayers: 1
+dec-embed-dim: 300
+dunits: 300
+dropout-rate-embed-decoder: 0.2
+dropout-rate-decoder: 0.1
+## joint network related
+joint-dim: 300
+
+# transducer related
+model-module: "espnet.nets.pytorch_backend.e2e_asr_transducer:E2E"
+
+num-save-attention: 0
+num-save-ctc: 0
+#changes
+future-context-lm: True
+future-context-lm-type: 'greedy_lookaround_aligned'
+future-context-lm-linear-layers: 2
+la-window: 4
+la-window-left: 2
+la-greedy-scheduled-sampling-probability: 0.0
+la-embed-size: 1024
+
+IAM-loss: True
+IAM-loss-weight: 0.125
+
+acoustic-warm-start: True
+acoustic-warm-start-epoch: 13
