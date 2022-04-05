@@ -137,7 +137,7 @@ class JointNetwork(torch.nn.Module):
                     self.future_context_combine_network = torch.nn.Linear(decoder_output_size*2 , decoder_output_size)
                 else:
                     future_context_linear_list = []
-                    future_context_linear_list.append(torch.nn.Linear(decoder_output_size+self.la_embed_size , future_context_lm_units))
+                    future_context_linear_list.append(torch.nn.Linear(decoder_output_size*2 , future_context_lm_units))
                     future_context_linear_list.append(torch.nn.Tanh())
                     for i in range(future_context_lm_linear_layers-2):
                         future_context_linear_list.append(torch.nn.Linear(future_context_lm_units , future_context_lm_units))
