@@ -192,7 +192,8 @@ class JointNetwork(torch.nn.Module):
                     for t in range(T):
                         la_tokens[b,t] = torch.cat([am_outs[b,t+1:][am_outs[b,t+1:]!=0][:self.la_window],torch.zeros(self.la_window,device=enc_out.device,dtype=am_outs.dtype)])[:self.la_window]
                 la_tokens =  la_tokens.unsqueeze(-2).expand(-1,-1,U,-1)   # Shape here is B x T x U x embed*num_tokens
-                if self.training:  # Perform scheduled sampling only during training
+                if self.training and self.la_greedy_scheduled_sampling_probability>0:  # Perform scheduled sampling only during training
+                # if self.training:  # Perform scheduled sampling only during training
                     target = torch.cat([target,torch.zeros([B,1],device=am_outs.device,dtype=target.dtype)],dim=-1)
                     sched_samp = torch.zeros([B,U,self.la_window],dtype=am_outs.dtype,device=am_outs.device)
                     for b in range(B):
