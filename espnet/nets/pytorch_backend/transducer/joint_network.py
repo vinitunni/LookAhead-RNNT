@@ -199,8 +199,11 @@ class JointNetwork(torch.nn.Module):
                 iu1=np.triu_indices(T+1)
                 # np.apply_along_axis(lambda e: e[np.nonzero(e)],1,np.concatenate((am_outs_np[0],np.zeros([T+1,self.la_window],int)+temp_max_token+1),axis=-1))
                 # temp4=np.apply_along_axis(lambda e: e.reshape(T+1,T+1)[iu1],1,am_outs.reshape(B,-1))
-                for temp_i in range(B):
-                    am_outs_np[temp_i][iu1]=0
+                # for temp_i in range(B):
+                #     am_outs_np[temp_i][iu1]=0
+                temp4 = [np.expand_dims(np.tril(am_outs_np[temp_i]),0) for temp_i in range(B)]
+                temp4 = np.concatenate(temp4,axis=0)
+                am_outs_np = temp4
                 # temp1=np.apply_along_axis(lambda e: e[e.nonzero()][:self.la_window],1,np.concatenate((am_outs_np[0],np.zeros([T+1,self.la_window],int)+temp_max_token+1),axis=-1))
                 # temp2=np.apply_along_axis(lambda e: e[e.nonzero()][:self.la_window],0,np.concatenate((am_outs_np[0],np.zeros([self.la_window,T+1],int)+temp_max_token+1),axis=-2))
                 temp3=np.apply_along_axis(lambda e: e[e.nonzero()][:self.la_window],1,np.concatenate((am_outs_np,np.zeros([B,self.la_window,T+1],int)+temp_max_token+1),axis=1)).transpose(0,2,1)%(temp_max_token+1)
