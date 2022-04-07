@@ -183,15 +183,30 @@ class JointNetwork(torch.nn.Module):
                 gu_temp = self.future_context_combine_network(torch.cat((dec_out.expand(-1,t_len,-1,-1),convolved_am.expand(-1,-1,u_len,-1)),dim=-1))
                 dec_out = gu_temp
             elif self.future_context_lm_type == 'greedy_lookahead_aligned' and len(enc_out.shape)>2 and not implicit_am:
+                import numpy as np
                 am_outs = self.lin_out(self.lin_enc(enc_out)).argmax(dim=-1).squeeze(-1)  # after this, the size is B x T
                 B, T = am_outs.shape
                 U = dec_out.shape[2]
                 am_outs = torch.cat([am_outs,torch.zeros([B,1],dtype=am_outs.dtype,device=am_outs.device)],dim=-1)
-                la_tokens = torch.zeros(B,T,self.la_window,dtype=am_outs.dtype,device=am_outs.device)
-                for b in range(am_outs.shape[0]):
-                    for t in range(T):
-                        la_tokens[b,t] = torch.cat([am_outs[b,t+1:][am_outs[b,t+1:]!=0][:self.la_window],torch.zeros(self.la_window,device=enc_out.device,dtype=am_outs.dtype)])[:self.la_window]
-                la_tokens =  la_tokens.unsqueeze(-2).expand(-1,-1,U,-1)   # Shape here is B x T x U x embed*num_tokens
+                # la_tokens = torch.zeros(B,T,self.la_window,dtype=am_outs.dtype,device=am_outs.device)
+                # for b in range(am_outs.shape[0]):
+                #     for t in range(T):
+                #         la_tokens[b,t] = torch.cat([am_outs[b,t+1:][am_outs[b,t+1:]!=0][:self.la_window],torch.zeros(self.la_window,device=enc_out.device,dtype=am_outs.dtype)])[:self.la_window]
+
+                am_outs_np = am_outs.unsqueeze(-1).expand(-1,-1,T+1).cpu().numpy()
+                temp_max_token = np.max(am_outs_np)
+                # am_outs_np = np.concatenate((am_outs_np,np.zeros([B,T+1,self.la_window])+temp_max_token+1),axis=-1)
+                iu1=np.triu_indices(T+1)
+                # np.apply_along_axis(lambda e: e[np.nonzero(e)],1,np.concatenate((am_outs_np[0],np.zeros([T+1,self.la_window],int)+temp_max_token+1),axis=-1))
+                # temp4=np.apply_along_axis(lambda e: e.reshape(T+1,T+1)[iu1],1,am_outs.reshape(B,-1))
+                for temp_i in range(B):
+                    am_outs_np[temp_i][iu1]=0
+                # temp1=np.apply_along_axis(lambda e: e[e.nonzero()][:self.la_window],1,np.concatenate((am_outs_np[0],np.zeros([T+1,self.la_window],int)+temp_max_token+1),axis=-1))
+                # temp2=np.apply_along_axis(lambda e: e[e.nonzero()][:self.la_window],0,np.concatenate((am_outs_np[0],np.zeros([self.la_window,T+1],int)+temp_max_token+1),axis=-2))
+                temp3=np.apply_along_axis(lambda e: e[e.nonzero()][:self.la_window],1,np.concatenate((am_outs_np,np.zeros([B,self.la_window,T+1],int)+temp_max_token+1),axis=1)).transpose(0,2,1)%(temp_max_token+1)
+                la_tokens_2 = torch.tensor(temp3[:,:-1,:],device=am_outs.device,dtype=am_outs.dtype)
+                # np.apply_along_axis(lambda e: e.shape,1,am_outs_np[0])
+                la_tokens =  la_tokens_2.unsqueeze(-2).expand(-1,-1,U,-1)   # Shape here is B x T x U x embed*num_tokens
                 if self.training and self.la_greedy_scheduled_sampling_probability>0:  # Perform scheduled sampling only during training
                 # if self.training:  # Perform scheduled sampling only during training
                     target = torch.cat([target,torch.zeros([B,1],device=am_outs.device,dtype=target.dtype)],dim=-1)
