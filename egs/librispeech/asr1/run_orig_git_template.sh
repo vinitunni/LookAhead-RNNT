@@ -10,13 +10,13 @@
 backend=pytorch
 stage=1       # start from -1 if you need to start from data download
 stop_stage=100
-ngpu=4         # number of gpus ("0" uses cpu, otherwise use gpu)
+ngpu=2       # number of gpus ("0" uses cpu, otherwise use gpu)
 nj=32
 debugmode=1
 dumpdir=dump   # directory to dump full features
 N=0            # number of minibatches to be used (mainly for debugging). "0" uses all minibatches.
 verbose=0      # verbose option
-resume=exp_fresh/train_clean_100_sp_pytorch_train_conformer_transducer_noam_specaug_300bpe_fromLibri100SOTA/results/snapshot.ep.46        # Resume the training from snapshot
+resume=       # Resume the training from snapshot
 #export CUDA_VISIBLE_DEVICES=0,2,3
 #export PYTORCH_CUDA_ALLOC_CONF=max_split_size_mb:25
 
@@ -47,7 +47,7 @@ use_cerbest_average=false    # if true, models with top-`n_average` validation/c
 # Set this to somewhere where you want to put your data, or where
 # someone else has already put it.  You'll want to change this
 # if you're not on the CLSP grid.
-datadir=/exp/vinit/Datasets/librispeech/LibriSpeech
+datadir=data/
 # base url for downloads.
 data_url=www.openslr.org/resources/12
 
@@ -66,7 +66,7 @@ set -e
 set -u
 set -o pipefail
 
-train_set=train-clean-100-sp # train_clean_100 or train_clean_100_sp
+train_set=train-clean-100-sp-org # train_clean_100 or train_clean_100_sp
 train_dev=dev
 recog_set="test-clean test-other dev-clean dev-other"
 
@@ -81,10 +81,10 @@ if [ ${stage} -le 0 ] && [ ${stop_stage} -ge 0 ]; then
     ### Task dependent. You have to make data the following preparation part by yourself.
     ### But you can utilize Kaldi recipes in most cases
     echo "stage 0: Data preparation"
-    #for part in dev-clean test-clean dev-other test-other train-clean-100; do
-        ## use underscore-separated names in data directories.
-        #local/data_prep.sh ${datadir}/LibriSpeech/${part} data/${part//-/_}
-    #done
+    for part in dev-clean test-clean dev-other test-other train-clean-100; do
+        # use underscore-separated names in data directories.
+        local/data_prep.sh ${datadir}/LibriSpeech/${part} data/${part//-/_}
+    done
 fi
 
 feat_tr_dir=${dumpdir}/${train_set}/delta${do_delta}; mkdir -p ${feat_tr_dir}
@@ -94,40 +94,41 @@ if [ ${stage} -le 1 ] && [ ${stop_stage} -ge 1 ]; then
     fbankdir=fbank
 
     # Generate the fbank features; by default 80-dimensional fbanks with pitch on each frame
-	#for x in dev_clean test_clean dev_other test_other train_clean_100; do
-	for x in dev-clean test-clean dev-other test-other train-clean-100; do
+	# for x in dev_clean test_clean dev_other test_other train_clean_100; do
+	# for x in dev-clean test-clean dev-other test-other train-clean-100; do
+    for x in dev-clean test-clean dev-other test-other;  do
 		steps/make_fbank_pitch.sh --cmd "$train_cmd" --nj ${nj} --write_utt2num_frames true \
 			data/${x} exp/make_fbank/${x} ${fbankdir}
 		utils/fix_data_dir.sh data/${x}
 	done
 
     # speed perturbation
-	mv data/train-clean-100 data/train-clean-100-org
-	utils/perturb_data_dir_speed.sh 0.9  data/train_clean_100_org  data/temp1
-	utils/perturb_data_dir_speed.sh 1.0  data/train_clean_100_org  data/temp2
-	utils/perturb_data_dir_speed.sh 1.1  data/train_clean_100_org  data/temp3
-	utils/combine_data.sh --extra_files utt2uniq data/train-clean-100-sp-org data/temp1 data/temp2 data/temp3
+	# mv data/train_clean_100 data/train-clean-100-org
+	# utils/perturb_data_dir_speed.sh 0.9  data/train-clean-100-org  data/temp1
+	# utils/perturb_data_dir_speed.sh 1.0  data/train-clean-100-org  data/temp2
+	# utils/perturb_data_dir_speed.sh 1.1  data/train-clean-100-org  data/temp3
+	# utils/combine_data.sh --extra_files utt2uniq data/train-clean-100-sp-org data/temp1 data/temp2 data/temp3
 
     ## create dev set
-	utils/combine_data.sh --extra_files utt2num_frames data/dev-org data/dev-clean data/dev-other
+	# utils/combine_data.sh --extra_files utt2num_frames data/dev-org data/dev-clean data/dev-other
 
     ## remove utt having more than 3000 frames
     ## remove utt having more than 400 characters
     #remove_longshortdata.sh --maxframes 3000 --maxchars 400 data/train_clean_100_org data/train_clean_100
-	remove_longshortdata.sh --maxframes 3000 --maxchars 400 data/train-clean-100-sp-org data/train-clean-100-sp
-	remove_longshortdata.sh --maxframes 3000 --maxchars 400 data/dev-org data/dev
-	steps/make_fbank_pitch.sh --cmd "$train_cmd" --nj $nj  --write_utt2num_frames true \
-			data/train-clean-100-sp  exp/make_fbank/train-clean-100-sp  ${fbankdir}
-	utils/fix_data_dir.sh data/train-clean-100-sp
-    ## compute global CMVN
-	compute-cmvn-stats scp:data/${train_set}/feats.scp data/${train_set}/cmvn.ark
+	# remove_longshortdata.sh --maxframes 3000 --maxchars 400 data/train-clean-100-sp-org data/train-clean-100-sp
+	# remove_longshortdata.sh --maxframes 3000 --maxchars 400 data/dev-org data/dev
+	# steps/make_fbank_pitch.sh --cmd "$train_cmd" --nj $nj  --write_utt2num_frames true \
+	# 		data/train-clean-100-sp-org  exp/make_fbank/train-clean-100-sp  ${fbankdir}
+	# utils/fix_data_dir.sh data/train-clean-100-sp
+    # ## compute global CMVN
+	# compute-cmvn-stats scp:data/${train_set}/feats.scp data/${train_set}/cmvn.ark
 
     ## dump features for training
 	dump.sh --cmd "$train_cmd" --nj ${nj} --do_delta ${do_delta} \
 		data/${train_set}/feats.scp data/${train_set}/cmvn.ark exp/dump_feats/train ${feat_tr_dir}
 	dump.sh --cmd "$train_cmd" --nj ${nj} --do_delta ${do_delta} \
 		data/${train_dev}/feats.scp data/${train_set}/cmvn.ark exp/dump_feats/dev ${feat_dt_dir}
-    for rtask in ${recog_set2}; do
+    for rtask in ${recog_set}; do
         feat_recog_dir=${dumpdir}/${rtask}/delta${do_delta}; mkdir -p ${feat_recog_dir}
         dump.sh --cmd "$train_cmd" --nj ${nj} --do_delta ${do_delta} \
             data/${rtask}/feats.scp data/${train_set}/cmvn.ark exp/dump_feats/recog/${rtask} \
