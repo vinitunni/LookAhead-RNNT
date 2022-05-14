@@ -488,7 +488,7 @@ class BeamSearchTransducer:
 
             if B_:
                 # First get output from LSTM
-                if not self.joint_network.future_context_lm or self.joint_network.future_context_lm_type == 'linear' or self.joint_network.future_context_lm_type == 'greedy_lookahead_aligned' or self.joint_network.future_context_lm_type == 'greedy_lookahead_acoustic_aligned' or self.joint_network.future_context_lm_type == 'greedy_lookahead_aligned_tokentoss' or self.joint_network.future_context_lm_type == 'greedy_lookahead_aligned_rapidfuzz' or self.joint_network.future_context_lm_type == 'greedy_lookahead_aligned_topK' or self.joint_network.future_context_lm_type == 'greedy_lookaround_transformer_aligned':
+                if not self.joint_network.future_context_lm or self.joint_network.future_context_lm_type == 'linear' or self.joint_network.future_context_lm_type == 'greedy_lookahead_aligned' or self.joint_network.future_context_lm_type == 'greedy_lookahead_acoustic_aligned' or self.joint_network.future_context_lm_type == 'greedy_lookahead_aligned_tokentoss' or self.joint_network.future_context_lm_type == 'greedy_lookahead_aligned_rapidfuzz' or self.joint_network.future_context_lm_type == 'greedy_lookahead_aligned_topK' or self.joint_network.future_context_lm_type == 'greedy_lookaround_transformer_aligned' or self.joint_network.future_context_lm_type == 'greedy_lookaround_aligned':
                     
                     beam_dec_out, beam_state, beam_lm_tokens = self.decoder.batch_score(
                         B_,
@@ -526,6 +526,18 @@ class BeamSearchTransducer:
                         init_b, _ , _ = la_tokens.shape
                         la_tokens = la_tokens.reshape(init_b,-1)
                         beam_dec_out = torch.cat([beam_dec_out,la_tokens],dim=-1)
+                        beam_dec_out = self.joint_network.future_context_combine_network(beam_dec_out)
+                    elif self.joint_network.future_context_lm_type == 'greedy_lookaround_aligned': 
+                        greedy_outs = self.joint_network.lin_out(self.joint_network.lin_enc(enc_out)).argmax(dim=-1).squeeze(-1)  # after this, the size is B x T
+                        la_tokens_right = torch.stack([torch.cat([greedy_outs[x[0]:][greedy_outs[x[0]:]!=0][:self.joint_network.la_window_right],torch.zeros(self.joint_network.la_window_right,dtype=greedy_outs.dtype,device=greedy_outs.device)])[:self.joint_network.la_window_right] for x in B_enc_out])
+                        la_tokens_left = torch.stack([torch.cat([torch.zeros(int(self.joint_network.la_window_left),device=greedy_outs.device,dtype=greedy_outs.dtype),greedy_outs[:x[0]][greedy_outs[:x[0]]!=0][-self.joint_network.la_window_left:]])[-self.joint_network.la_window_left:] for x in B_enc_out])
+                        la_tokens = torch.cat([la_tokens_left,la_tokens_right],dim=-1)
+                        init_b, _ = la_tokens.shape
+                        la_tokens = self.joint_network.embed_la(la_tokens).reshape(init_b,(self.joint_network.la_window_left + self.joint_network.la_window_right),-1)
+                        # la_attended = torch.stack([self.joint_network.joint_attention_layer(query=self.joint_network.lin_dec(beam_dec_out[i]),key=self.joint_network.embed_to_lm(la_tokens[i]),value=self.joint_network.embed_to_lm(la_tokens[i]), mask=None) for i in range(beam_dec_out.shape[0])])
+                        la_attended = self.joint_network.joint_attention_layer(query=self.joint_network.lin_dec(beam_dec_out),key=self.joint_network.embed_to_lm(la_tokens),value=self.joint_network.embed_to_lm(la_tokens), mask=None)
+                        la_attended = la_attended.reshape(init_b,-1)
+                        beam_dec_out = torch.cat([beam_dec_out,la_attended],dim=-1)
                         beam_dec_out = self.joint_network.future_context_combine_network(beam_dec_out)
                     elif self.joint_network.future_context_lm_type == 'greedy_lookahead_aligned_topK': 
                         greedy_outs_topk = torch.softmax(self.joint_network.lin_out(self.joint_network.lin_enc(enc_out)),dim=-1)
