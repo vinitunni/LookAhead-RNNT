@@ -26,6 +26,9 @@ def main():
             elif args.metric == "loss":
                 if "validation/main/loss" in log.keys():
                     val_scores += [[log["epoch"], -log["validation/main/loss"]]]
+            elif args.metric == "loss_trans":
+                if "validation/main/loss_trans" in log.keys():
+                    val_scores += [[log["epoch"], -log["validation/main/loss_trans"]]]
             elif args.metric == "bleu":
                 if "validation/main/bleu" in log.keys():
                     val_scores += [[log["epoch"], log["validation/main/bleu"]]]
@@ -121,7 +124,7 @@ def get_parser():
         default="",
         type=str,
         nargs="?",
-        choices=["acc", "bleu", "cer", "cer_ctc", "loss", "perplexity"],
+        choices=["acc", "bleu", "cer", "cer_ctc", "loss", "perplexity","loss_trans"],
     )
     parser.add_argument(
         "--max-epoch",
