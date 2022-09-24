@@ -11,8 +11,8 @@ epi = epitran.Epitran('eng-Latn')
 
 # root_folder="/mnt/a99/d0/vinit/exp/espnet-0.10.4/egs/librispeech/asr1/exp_fresh"
 root_folder=os.getcwd()
-ref_folds = set([ x.rstrip('ref.wrd.trn') for x in glob.glob(os.path.join(root_folder,'**','ref.wrd.trn')) ])
-hyp_folds = set([ x.rstrip('hyp.wrd.trn') for x in glob.glob(os.path.join(root_folder,'**','hyp.wrd.trn')) ])
+ref_folds = set([ x.rstrip('ref.wrd.trn') for x in glob.glob(os.path.join(root_folder,'**','ref.wrd.trn'),recursive=True) ])
+hyp_folds = set([ x.rstrip('hyp.wrd.trn') for x in glob.glob(os.path.join(root_folder,'**','hyp.wrd.trn'),recursive=True) ])
 try:
     assert (ref_folds == hyp_folds)
     all_folds = ref_folds

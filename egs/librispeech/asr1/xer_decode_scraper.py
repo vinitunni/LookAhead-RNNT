@@ -1,4 +1,4 @@
-#!/bin/python
+#!/usr/bin/env python3
 import editdistance as ed
 import os, glob
 from tqdm import tqdm
@@ -6,8 +6,7 @@ import spacy
 nlp = spacy.load("en_core_web_sm")
 
 root_folder=os.getcwd()
-folders = set([ x.rstrip('result.wrd.txt') for x in glob.glob(os.path.join(root_folder,'**','result.wrd.txt')) ])
-folders = set([ x.rstrip('result.wrd.txt') for x in glob.glob(os.path.join(root_folder,'result.wrd.txt')) ])
+folders = set([ x.rstrip('result.wrd.txt') for x in glob.glob(os.path.join(root_folder,'**','result.wrd.txt'),recursive=True) ])
 for folder in folders:
     print(folder)
     filename = os.path.join(folder,'result.wrd.txt')

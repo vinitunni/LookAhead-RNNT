@@ -121,7 +121,7 @@ def get_parser():
     parser.add_argument("--log", default=None, type=str, nargs="?")
     parser.add_argument(
         "--metric",
-        default="",
+        default="loss_trans",
         type=str,
         nargs="?",
         choices=["acc", "bleu", "cer", "cer_ctc", "loss", "perplexity","loss_trans"],
