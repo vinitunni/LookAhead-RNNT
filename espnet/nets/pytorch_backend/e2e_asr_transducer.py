@@ -470,7 +470,7 @@ class E2E(ASRInterface, torch.nn.Module):
         initializer(self, args)
 
     def forward(
-        self, feats: torch.Tensor, feats_len: torch.Tensor, labels: torch.Tensor
+            self, feats: torch.Tensor, feats_len: torch.Tensor, labels: torch.Tensor, 
     ) -> torch.Tensor:
         """E2E forward.
 

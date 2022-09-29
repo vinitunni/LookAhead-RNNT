@@ -58,6 +58,9 @@ class TransducerTasks(torch.nn.Module):
         la_greedy_scheduled_sampling_probability=0.2,
         la_teacher_forcing_dist_threshold=0.1,
         topK=5,
+        ctc_type='charVocab',
+        IAM_loss_type='ctc',
+        ctc_charVocab_file=None,
             
     ):
         """Initialize module for Transducer tasks.
@@ -97,6 +100,9 @@ class TransducerTasks(torch.nn.Module):
             la_embed_size=Embedding layer size for look ahead tokens
             la_window=Number of look ahead tokens to use
             la_greedy_scheduled_sampling_probability=Sampling probability for teacher forcing
+            ctc_type=type of ctc loss (char or bpe)
+            IAM_loss_type=type of IAM loss (char or bpe). This also affects lookahead embeddings.
+            ctc_charVocab_File= File for ctc char,
 
         """
         super().__init__()
@@ -125,8 +131,27 @@ class TransducerTasks(torch.nn.Module):
                 fastemit_lambda=fastemit_lambda,
             )
 
-        if ctc_loss:
-            self.ctc_lin = torch.nn.Linear(encoder_dim, output_dim)
+        if ctc_loss or 'ctc' in IAM_loss_type:
+            self.ctc_type=ctc_type
+            if self.ctc_type=='default':
+                self.ctc_lin = torch.nn.Linear(encoder_dim, output_dim)
+            elif 'ctc' in IAM_loss_type and self.ctc_type=='charVocab':
+                ctc_charVocab_file='/home/vinit/exp/espnet-0.10.4/egs/librispeech/asr2/data/lang_char_pretrained/mcv_en_valid_indAccent_train_sp_characterNA_units.txt'
+                self.ctc_dict_chr2ind={}
+                self.ctc_dict_ind2chr={}
+                self.ctc_dict_chr2ind['<blank>']=0
+                self.ctc_dict_ind2chr[0]='<blank>'
+                tmp_num_lines=0
+                with open(ctc_charVocab_file,'r') as r:
+                    for line in r.readlines():
+                        char, ind = line.strip().split()
+                        if 'unk' in char.lower():
+                            char='#'
+                        self.ctc_dict_chr2ind[char] = ind
+                        self.ctc_dict_ind2chr[ind] = char
+                        tmp_num_lines+=1
+                tmp_num_lines+=1
+                self.ctc_lin = torch.nn.Linear(encoder_dim, tmp_num_lines )
 
             self.ctc_loss = torch.nn.CTCLoss(
                 blank=blank_id,
@@ -175,6 +200,7 @@ class TransducerTasks(torch.nn.Module):
 
         self.target = None
         self.ILM_loss = ILM_loss
+        self.IAM_loss_type=IAM_loss_type
         self.IAM_loss = IAM_loss
         self.ILM_loss_weight = ILM_loss_weight
         self.IAM_loss_weight = IAM_loss_weight
@@ -365,6 +391,7 @@ class TransducerTasks(torch.nn.Module):
             enc_out: Encoder output sequences. (B, T, D_enc)
             dec_out: Decoder output sequences. (B, U, D_dec)
             target: Target label ID sequences. (B, L)
+            target_charVocab: Target label ID sequences. (B, L)
             t_len: Time lengths. (B,)
             u_len: Label lengths. (B,)
 
@@ -386,9 +413,16 @@ class TransducerTasks(torch.nn.Module):
             loss_trans_LM /= joint_out_LM.size(0)
 
         if self.IAM_loss:
-            joint_out_AM = self.joint_network(enc_out.unsqueeze(2), torch.zeros_like(dec_out).unsqueeze(1),implicit_am=True)
-            loss_trans_AM = self.transducer_loss(joint_out_AM, target, t_len, u_len)
-            loss_trans_AM /= joint_out_AM.size(0)
+            if self.IAM_loss_type=='default':
+                joint_out_AM = self.joint_network(enc_out.unsqueeze(2), torch.zeros_like(dec_out).unsqueeze(1),implicit_am=True)
+                loss_trans_AM = self.transducer_loss(joint_out_AM, target, t_len, u_len)
+                loss_trans_AM /= joint_out_AM.size(0)
+            if self.IAM_loss_type=='ctc':
+                self.ctc_dict_chr2ind[self.char_list[-2][0]]=self.ctc_dict_chr2ind['<space>']
+                target_charVocab = torch.nn.utils.rnn.pad_sequence([  torch.tensor([ int(self.ctc_dict_chr2ind[chr]) for chr in list(sent)] + [-1]) for sent in [''.join([self.char_list[t] for t in tmp_target]).upper().replace(self.char_list[0].upper(),'').replace(self.char_list[1].upper(),'#') for tmp_target in target]],batch_first=True,padding_value=-1)  #Adding a -1 at the end as i wanna use it for ctc collapsing
+                u_len = tuple([  len([ self.ctc_dict_chr2ind[chr] for chr in list(sent)]) for sent in [''.join([self.char_list[t] for t in tmp_target]).upper().replace(self.char_list[0].upper(),'').replace(self.char_list[1].upper(),'#') for tmp_target in target]])
+                aux_ctc_loss = self.compute_ctc_loss(enc_out, target_charVocab, tuple(t_len), u_len) 
+                loss_trans_AM = aux_ctc_loss
 
         return loss_trans_LM, loss_trans_AM
 
