@@ -215,7 +215,7 @@ class JointNetwork(torch.nn.Module):
                     temp3=np.apply_along_axis(lambda e: e[e.nonzero()][:self.la_window],1,np.concatenate((am_outs_np,np.zeros([B,self.la_window,T+1],int)+temp_max_token+1),axis=1)).transpose(0,2,1)%(temp_max_token+1)
                 else:
                     non_zeros_func = lambda x: x[x.nonzero()]
-                    collapse_func = lambda x: non_zeros_func(x[:-1]-x[1:])  
+                    collapse_func = lambda x: x[(x[:-1]-x[1:]).nonzero()]  
                     temp3=np.apply_along_axis(lambda e: np.concatenate((non_zeros_func(collapse_func(e)),np.zeros([self.la_window],int)+temp_max_token+1))[:self.la_window],1,np.concatenate((am_outs_np,np.zeros([B,self.la_window,T+1],int)+temp_max_token+1),axis=1)).transpose(0,2,1)%(temp_max_token+1)
                 la_tokens_2 = torch.tensor(temp3[:,:-1,:],device=am_outs.device,dtype=am_outs.dtype)
                 # np.apply_along_axis(lambda e: e.shape,1,am_outs_np[0])
