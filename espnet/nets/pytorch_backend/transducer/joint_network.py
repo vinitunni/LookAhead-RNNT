@@ -160,7 +160,8 @@ class JointNetwork(torch.nn.Module):
         implicit_am: bool = False,
         is_aux: bool = False,
         quantization: bool = False,
-        char_list: list=[]
+            char_list: list=[],
+        ctc_argmax_outs: torch.Tensor = None,
     ) -> torch.Tensor:
         """Joint computation of encoder and decoder hidden state sequences.
 
@@ -169,6 +170,7 @@ class JointNetwork(torch.nn.Module):
             dec_out: Expanded decoder output state sequences (B, 1, U, D_dec)
             is_aux: Whether auxiliary tasks in used.
             quantization: Whether dynamic quantization is used.
+        ctc_argmax_outs: take argmnax outputs from CTC directly for lookahead
 
         Returns:
             joint_out: Joint output state sequences. (B, T, U, D_out)
@@ -184,7 +186,10 @@ class JointNetwork(torch.nn.Module):
                 dec_out = gu_temp
             elif self.future_context_lm_type == 'greedy_lookahead_aligned' and len(enc_out.shape)>2 and not implicit_am:
                 import numpy as np
-                am_outs = self.lin_out(self.lin_enc(enc_out.detach())).argmax(dim=-1).squeeze(-1)  # after this, the size is B x T
+                if ctc_argmax_outs==None:
+                    am_outs = self.lin_out(self.lin_enc(enc_out.detach())).argmax(dim=-1).squeeze(-1)  # after this, the size is B x T
+                else:
+                    am_outs = ctc_argmax_outs.squeeze() 
                 B, T = am_outs.shape
                 U = dec_out.shape[2]
                 am_outs = torch.cat([am_outs,torch.zeros([B,1],dtype=am_outs.dtype,device=am_outs.device)],dim=-1)
@@ -196,7 +201,7 @@ class JointNetwork(torch.nn.Module):
                 am_outs_np = am_outs.unsqueeze(-1).expand(-1,-1,T+1).cpu().numpy()
                 temp_max_token = np.max(am_outs_np)
                 # am_outs_np = np.concatenate((am_outs_np,np.zeros([B,T+1,self.la_window])+temp_max_token+1),axis=-1)
-                iu1=np.triu_indices(T+1)
+                # iu1=np.triu_indices(T+1)
                 # np.apply_along_axis(lambda e: e[np.nonzero(e)],1,np.concatenate((am_outs_np[0],np.zeros([T+1,self.la_window],int)+temp_max_token+1),axis=-1))
                 # temp4=np.apply_along_axis(lambda e: e.reshape(T+1,T+1)[iu1],1,am_outs.reshape(B,-1))
                 # for temp_i in range(B):
@@ -206,7 +211,12 @@ class JointNetwork(torch.nn.Module):
                 am_outs_np = temp4
                 # temp1=np.apply_along_axis(lambda e: e[e.nonzero()][:self.la_window],1,np.concatenate((am_outs_np[0],np.zeros([T+1,self.la_window],int)+temp_max_token+1),axis=-1))
                 # temp2=np.apply_along_axis(lambda e: e[e.nonzero()][:self.la_window],0,np.concatenate((am_outs_np[0],np.zeros([self.la_window,T+1],int)+temp_max_token+1),axis=-2))
-                temp3=np.apply_along_axis(lambda e: e[e.nonzero()][:self.la_window],1,np.concatenate((am_outs_np,np.zeros([B,self.la_window,T+1],int)+temp_max_token+1),axis=1)).transpose(0,2,1)%(temp_max_token+1)
+                if ctc_argmax_outs == None:
+                    temp3=np.apply_along_axis(lambda e: e[e.nonzero()][:self.la_window],1,np.concatenate((am_outs_np,np.zeros([B,self.la_window,T+1],int)+temp_max_token+1),axis=1)).transpose(0,2,1)%(temp_max_token+1)
+                else:
+                    non_zeros_func = lambda x: x[x.nonzero()]
+                    collapse_func = lambda x: non_zeros_func(x[:-1]-x[1:])  
+                    temp3=np.apply_along_axis(lambda e: np.concatenate((non_zeros_func(collapse_func(e)),np.zeros([self.la_window],int)+temp_max_token+1))[:self.la_window],1,np.concatenate((am_outs_np,np.zeros([B,self.la_window,T+1],int)+temp_max_token+1),axis=1)).transpose(0,2,1)%(temp_max_token+1)
                 la_tokens_2 = torch.tensor(temp3[:,:-1,:],device=am_outs.device,dtype=am_outs.dtype)
                 # np.apply_along_axis(lambda e: e.shape,1,am_outs_np[0])
                 la_tokens =  la_tokens_2.unsqueeze(-2).expand(-1,-1,U,-1)   # Shape here is B x T x U x embed*num_tokens

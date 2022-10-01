@@ -235,7 +235,10 @@ class TransducerTasks(torch.nn.Module):
             enc_out=enc_out.unsqueeze(2)
         if len(dec_out.shape)!=4:
             dec_out=dec_out.unsqueeze(1)
-        joint_out = self.joint_network(enc_out, dec_out,target,char_list=char_list)
+        if self.joint_network.future_context_lm and 'ctc' in self.IAM_loss_type:
+            joint_out = self.joint_network(enc_out, dec_out,target,char_list=char_list, ctc_argmax_outs=self.ctc_lin(enc_out.detach()).argmax(dim=-1))
+        else:
+            joint_out = self.joint_network(enc_out, dec_out,target,char_list=char_list)
 
         loss_trans = self.transducer_loss(joint_out, target, t_len, u_len)
         loss_trans /= joint_out.size(0)
