@@ -531,6 +531,9 @@ def get_parser(parser=None, required=True):
     parser.add_argument("--acoustic-warm-start", type=bool, default=False, help="Whether warm start for the acoustic part shouldbe enabled. This is done by only training forthe implicit LM loss at the start")
     parser.add_argument("--acoustic-warm-start-epoch", type=int, default=2, help="The epoch number from which to start acoustic warm start")
     parser.add_argument("--topK", type=int, default=5, help="Value of K for topK sampling in greedy lookahead")
+    parser.add_argument("--ctc-charVocab-file", type=str, default='/home/vinit/exp/espnet-0.10.4/egs/librispeech/asr2/data/lang_char_pretrained/mcv_en_valid_indAccent_train_sp_characterNA_units.txt', help="File with char vocab for aux ctc loss")
+    parser.add_argument("--ctc-type", type=str, default='default', help="What type of CTC loss. Primarily whether characterVocab")
+    parser.add_argument("--IAM-loss-type", type=str, default='default', help="What type of IAM loss. Primarily whether Implicit loss or aux loss")
 
     
     return parser

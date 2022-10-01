@@ -133,16 +133,16 @@ class TransducerTasks(torch.nn.Module):
 
         if ctc_loss or 'ctc' in IAM_loss_type:
             self.ctc_type=ctc_type
+            self.ctc_charVocab_file = ctc_charVocab_file
             if self.ctc_type=='default':
                 self.ctc_lin = torch.nn.Linear(encoder_dim, output_dim)
             elif 'ctc' in IAM_loss_type and self.ctc_type=='charVocab':
-                ctc_charVocab_file='/home/vinit/exp/espnet-0.10.4/egs/librispeech/asr2/data/lang_char_pretrained/mcv_en_valid_indAccent_train_sp_characterNA_units.txt'
                 self.ctc_dict_chr2ind={}
                 self.ctc_dict_ind2chr={}
                 self.ctc_dict_chr2ind['<blank>']=0
                 self.ctc_dict_ind2chr[0]='<blank>'
                 tmp_num_lines=0
-                with open(ctc_charVocab_file,'r') as r:
+                with open(self.ctc_charVocab_file,'r') as r:
                     for line in r.readlines():
                         char, ind = line.strip().split()
                         if 'unk' in char.lower():

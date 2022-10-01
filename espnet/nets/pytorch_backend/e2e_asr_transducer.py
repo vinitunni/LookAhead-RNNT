@@ -349,6 +349,14 @@ class E2E(ASRInterface, torch.nn.Module):
             self.topK = args.topK
         except:
             self.topK = 5
+        try:
+            self.ctc_charVocab_file=args.ctc_charVocab_file
+            self.ctc_type=args.ctc_type
+            self.IAM_loss_type=args.IAM_loss_type
+        except:
+            self.ctc_charVocab_file=''
+            self.ctc_type='default'
+            self.IAM_loss_type='default'
 
         if args.dtype == "custom":
             if args.dec_block_arch is None:
@@ -422,6 +430,9 @@ class E2E(ASRInterface, torch.nn.Module):
             la_greedy_scheduled_sampling_probability=self.la_greedy_scheduled_sampling_probability,
             la_teacher_forcing_dist_threshold = self.la_teacher_forcing_dist_threshold,
             topK = self.topK, 
+            ctc_charVocab_file = self.ctc_charVocab_file,
+            ctc_type = self.ctc_type,
+            IAM_loss_type = self.IAM_loss_type,
 
         )
 
