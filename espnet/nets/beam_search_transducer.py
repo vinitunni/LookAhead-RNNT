@@ -514,8 +514,15 @@ class BeamSearchTransducer:
                         gu_temp=self.joint_network.future_context_combine_network(torch.cat((beam_dec_out,convolved_ams),dim=-1))
                         beam_dec_out = gu_temp
                     elif self.joint_network.future_context_lm_type == 'greedy_lookahead_aligned' or self.joint_network.future_context_lm_type == 'greedy_lookahead_aligned_lev_dist' or self.joint_network.future_context_lm_type == 'greedy_lookahead_aligned_rapidfuzz' or self.joint_network.future_context_lm_type == 'greedy_lookahead_aligned_tokentoss' or self.joint_network.future_context_lm_type == 'greedy_lookahead_aligned_dummy_random':
-                        greedy_outs = self.joint_network.lin_out(self.joint_network.lin_enc(enc_out)).argmax(dim=-1)
-                        la_tokens = torch.stack([torch.cat([greedy_outs[x[0]:][greedy_outs[x[0]:]!=0][:self.joint_network.la_window],torch.zeros(self.joint_network.la_window,dtype=greedy_outs.dtype,device=greedy_outs.device)])[:self.joint_network.la_window] for x in B_enc_out])
+                        if self.IAM_loss_type=='default':
+                            greedy_outs = self.joint_network.lin_out(self.joint_network.lin_enc(enc_out)).argmax(dim=-1)
+                            la_tokens = torch.stack([torch.cat([greedy_outs[x[0]:][greedy_outs[x[0]:]!=0][:self.joint_network.la_window],torch.zeros(self.joint_network.la_window,dtype=greedy_outs.dtype,device=greedy_outs.device)])[:self.joint_network.la_window] for x in B_enc_out])
+                        elif 'ctc' in self.IAM_loss_type:
+                            greedy_outs = self.ctc_lin(enc_out).argmax(dim=-1)
+                            non_zeros_func = lambda x: x[x.nonzero()]
+                            collapse_func = lambda x: x[(x[:-1]-x[1:]).nonzero()]  
+                            la_tokens = torch.stack([torch.cat([non_zeros_func(collapse_func(greedy_outs[x[0]:]))[:self.joint_network.la_window],torch.zeros(self.joint_network.la_window,dtype=greedy_outs.dtype,device=greedy_outs.device)])[:self.joint_network.la_window] for x in B_enc_out])
+                            
                         init_b, _ = la_tokens.shape
                         la_tokens = self.joint_network.embed_la(la_tokens).reshape(init_b,-1)
                         beam_dec_out = torch.cat([beam_dec_out,la_tokens],dim=-1)
