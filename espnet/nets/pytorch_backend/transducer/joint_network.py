@@ -219,7 +219,7 @@ class JointNetwork(torch.nn.Module):
                     temp3=np.apply_along_axis(lambda e: np.concatenate((non_zeros_func(collapse_func(e)),np.zeros([self.la_window],int)+temp_max_token+1))[:self.la_window],1,np.concatenate((am_outs_np,np.zeros([B,self.la_window,T+1],int)+temp_max_token+1),axis=1)).transpose(0,2,1)%(temp_max_token+1)
                 la_tokens_2 = torch.tensor(temp3[:,:-1,:],device=am_outs.device,dtype=am_outs.dtype)
                 # np.apply_along_axis(lambda e: e.shape,1,am_outs_np[0])
-                la_tokens =  la_tokens_2.unsqueeze(-2).expand(-1,-1,U,-1)   # Shape here is B x T x U x embed*num_tokens
+                la_tokens =  la_tokens_2.unsqueeze(-2).expand(-1,-1,U,-1)   # Shape here is B x T x U x num_tokens
                 if self.training and self.la_greedy_scheduled_sampling_probability>0:  # Perform scheduled sampling only during training
                 # if self.training:  # Perform scheduled sampling only during training
                     target = torch.cat([target,torch.zeros([B,1],device=am_outs.device,dtype=target.dtype)],dim=-1)
@@ -230,7 +230,7 @@ class JointNetwork(torch.nn.Module):
                     sched_samp = sched_samp.unsqueeze(1).expand(-1,T,-1,-1)   #coin toss for entire substring
                     sched_samp_rand = torch.rand([B,T,U,1],device=la_tokens.device).expand(-1,-1,-1,self.la_window)
                     la_tokens = la_tokens * (sched_samp_rand > self.la_greedy_scheduled_sampling_probability).to(int) + sched_samp * (sched_samp_rand <= self.la_greedy_scheduled_sampling_probability).to(int)
-                la_tokens = self.embed_la(la_tokens).reshape(B,T,U,-1)
+                la_tokens = self.embed_la(la_tokens).reshape(B,T,U,-1)# Shape here is B x T x U x num_tokens*embedding_size
                 dec_out = dec_out.expand(-1,T,-1,-1)
                 dec_out = torch.cat([dec_out,la_tokens],dim=-1)
                 dec_out = self.future_context_combine_network(dec_out)
