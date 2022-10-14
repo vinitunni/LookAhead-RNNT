@@ -134,7 +134,7 @@ class TransducerTasks(torch.nn.Module):
         if ctc_loss or 'ctc' in IAM_loss_type:
             self.ctc_type=ctc_type
             self.ctc_charVocab_file = ctc_charVocab_file
-            if self.ctc_type=='default':
+            if self.ctc_type=='default' or self.ctc_type=='warpctc':
                 self.ctc_lin = torch.nn.Linear(encoder_dim, output_dim)
             elif 'ctc' in IAM_loss_type and self.ctc_type=='charVocab':
                 self.ctc_dict_chr2ind={}
@@ -145,6 +145,7 @@ class TransducerTasks(torch.nn.Module):
                 with open(self.ctc_charVocab_file,'r') as r:
                     for line in r.readlines():
                         char, ind = line.strip().split()
+                        ind = int(ind)
                         if 'unk' in char.lower():
                             char='#'
                         self.ctc_dict_chr2ind[char] = ind
@@ -420,12 +421,17 @@ class TransducerTasks(torch.nn.Module):
                 joint_out_AM = self.joint_network(enc_out.unsqueeze(2), torch.zeros_like(dec_out).unsqueeze(1),implicit_am=True)
                 loss_trans_AM = self.transducer_loss(joint_out_AM, target, t_len, u_len)
                 loss_trans_AM /= joint_out_AM.size(0)
-            if self.IAM_loss_type=='ctc':
+            elif self.IAM_loss_type=='ctc':
                 self.ctc_dict_chr2ind[self.char_list[-2][0]]=self.ctc_dict_chr2ind['<space>']
                 target_charVocab = torch.nn.utils.rnn.pad_sequence([  torch.tensor([ int(self.ctc_dict_chr2ind[chr]) for chr in list(sent)] + [-1]) for sent in [''.join([self.char_list[t] for t in tmp_target]).upper().replace(self.char_list[0].upper(),'').replace(self.char_list[1].upper(),'#') for tmp_target in target]],batch_first=True,padding_value=-1)  #Adding a -1 at the end as i wanna use it for ctc collapsing
-                u_len = tuple([  len([ self.ctc_dict_chr2ind[chr] for chr in list(sent)]) for sent in [''.join([self.char_list[t] for t in tmp_target]).upper().replace(self.char_list[0].upper(),'').replace(self.char_list[1].upper(),'#') for tmp_target in target]])
+                # tmp_test_orig_target = [''.join([self.char_list[t] for t in sent]) for sent in target]
+                # tmp_test_char_target = [''.join([self.ctc_dict_ind2chr[int(t)] for t in sent if t>=0]) for sent in target_charVocab]
+                u_len = tuple([len(t[t>0]) for t in target_charVocab])
                 aux_ctc_loss = self.compute_ctc_loss(enc_out, target_charVocab, tuple(t_len), u_len) 
                 loss_trans_AM = aux_ctc_loss
+            else:
+                print("Invalid type")
+                raise
 
         return loss_trans_LM, loss_trans_AM
 
