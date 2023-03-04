@@ -8,23 +8,23 @@
 
 # general configuration
 backend=pytorch
-stage=5       # start from -1 if you need to start from data download
+stage=1       # start from -1 if you need to start from data download
 stop_stage=100
-ngpu=3         # number of gpus ("0" uses cpu, otherwise use gpu)
+ngpu=1         # number of gpus ("0" uses cpu, otherwise use gpu)
 nj=32
 debugmode=1
 dumpdir=dump   # directory to dump full features
 N=0            # number of minibatches to be used (mainly for debugging). "0" uses all minibatches.
 verbose=0      # verbose option
 resume=
-export CUDA_VISIBLE_DEVICES=0,2,3
-export PYTORCH_CUDA_ALLOC_CONF=max_split_size_mb:25
+#export CUDA_VISIBLE_DEVICES=0,2,3
+#export PYTORCH_CUDA_ALLOC_CONF=max_split_size_mb:25
 
 # feature configuration
 do_delta=false
 
 preprocess_config=conf/specaug.yaml
-train_config=conf/train_conformer_transducer_noam.yaml # current default recipe requires 4 gpus.
+train_config=conf/ashish_baselines_libri100/train_conformer_transducer_noam_RedoBaselineToCheck.yaml  # current default recipe requires 4 gpus.
                              # if you do not have 4 gpus, please reconfigure the `batch-bins` and `accum-grad` parameters in config.
 lm_config=conf/lm.yaml
 decode_config=conf/decode_alsd.yaml
@@ -35,11 +35,11 @@ lm_resume=             # specify a snapshot file to resume LM training
 lmtag=                 # tag for managing LMs
 
 # decoding parameter
-recog_model=model.acc.best  # set a model to be used for decoding: 'model.acc.best' or 'model.loss.best'
+recog_model=model.loss.best  # set a model to be used for decoding: 'model.acc.best' or 'model.loss.best'
 lang_model=rnnlm.model.best # set a language model to be used for decoding
 
 # model average realted (only for transformer)
-n_average=1                  # the number of ASR models to be averaged
+n_average=5                  # the number of ASR models to be averaged
 use_valbest_average=false    # if true, models with top-`n_average` validation/loss are averaged
 use_cerbest_average=false    # if true, models with top-`n_average` validation/cer_cer are averaged
                              # if both use_{valbest,cerbest}_average are false, last `n_average` are averaged
@@ -67,9 +67,9 @@ set -e
 set -u
 set -o pipefail
 
-train_set=train_sp # train_clean_100 or train_clean_100_sp
+train_set=train_clean_100_sp # train_clean_100 or train_clean_100_sp
 train_dev=dev
-recog_set="test-clean test-other dev-clean dev-other"
+recog_set="test_clean test_other dev_clean dev_other"
 
 if [ ${stage} -le -1 ] && [ ${stop_stage} -ge -1 ]; then
     echo "stage -1: Data Download"
@@ -96,36 +96,37 @@ if [ ${stage} -le 1 ] && [ ${stop_stage} -ge 1 ]; then
 
     # Generate the fbank features; by default 80-dimensional fbanks with pitch on each frame
 	#for x in dev_clean test_clean dev_other test_other train_clean_100; do
-	for x in dev-clean test-clean dev-other test-other; do
+	for x in dev-clean test-clean dev-other test-other train_clean_100; do
 		steps/make_fbank_pitch.sh --cmd "$train_cmd" --nj ${nj} --write_utt2num_frames true \
 			data/${x} exp/make_fbank/${x} ${fbankdir}
 		utils/fix_data_dir.sh data/${x}
 	done
 
     # speed perturbation
-    #mv data/train_clean_100 data/train_clean_100_org
-    #utils/perturb_data_dir_speed.sh 0.9  data/train_clean_100_org  data/temp1
-    #utils/perturb_data_dir_speed.sh 1.0  data/train_clean_100_org  data/temp2
-    #utils/perturb_data_dir_speed.sh 1.1  data/train_clean_100_org  data/temp3
-    #utils/combine_data.sh --extra-files utt2uniq data/train_clean_100_sp_org data/temp1 data/temp2 data/temp3
+	cp -r data/train_clean_100 data/train_clean_100_org
+	utils/perturb_data_dir_speed.sh 0.9  data/train_clean_100_org  data/temp1
+	utils/perturb_data_dir_speed.sh 1.0  data/train_clean_100_org  data/temp2
+	utils/perturb_data_dir_speed.sh 1.1  data/train_clean_100_org  data/temp3
+	utils/combine_data.sh --extra-files utt2uniq data/train_clean_100_sp_org data/temp1 data/temp2 data/temp3
+	rm -rf data/temp1 data/temp2 data/temp3
 
     ## create dev set
 	utils/combine_data.sh --extra_files utt2num_frames data/dev_org data/dev_clean data/dev_other
 
     ## remove utt having more than 3000 frames
     ## remove utt having more than 400 characters
-    #remove_longshortdata.sh --maxframes 3000 --maxchars 400 data/train_clean_100_org data/train_clean_100
-    #remove_longshortdata.sh --maxframes 3000 --maxchars 400 data/train_clean_100_sp_org data/train_clean_100_sp
+	#remove_longshortdata.sh --maxframes 3000 --maxchars 400 data/train_clean_100_org data/train_clean_100
+	remove_longshortdata.sh --maxframes 3000 --maxchars 400 data/train_clean_100_sp_org data/train_clean_100_sp
 	remove_longshortdata.sh --maxframes 3000 --maxchars 400 data/dev_org data/dev
-    #steps/make_fbank_pitch.sh --cmd "$train_cmd" --nj $nj  --write_utt2num_frames true \
-            #data/train_clean_100_sp  exp/make_fbank/train_clean_100_sp  ${fbankdir}
-    #utils/fix_data_dir.sh data/train_clean_100_sp
+	steps/make_fbank_pitch.sh --cmd "$train_cmd" --nj $nj  --write_utt2num_frames true \
+			data/train_clean_100_sp  exp/make_fbank/train_clean_100_sp  ${fbankdir}
+	utils/fix_data_dir.sh data/train_clean_100_sp
     ## compute global CMVN
-    #compute-cmvn-stats scp:data/${train_set}/feats.scp data/${train_set}/cmvn.ark
+	compute-cmvn-stats scp:data/${train_set}/feats.scp data/${train_set}/cmvn.ark
 
     ## dump features for training
-    #dump.sh --cmd "$train_cmd" --nj ${nj} --do_delta ${do_delta} \
-        #data/${train_set}/feats.scp data/${train_set}/cmvn.ark exp/dump_feats/train ${feat_tr_dir}
+	dump.sh --cmd "$train_cmd" --nj ${nj} --do_delta ${do_delta} \
+		data/${train_set}/feats.scp data/${train_set}/cmvn.ark exp/dump_feats/train ${feat_tr_dir}
 	dump.sh --cmd "$train_cmd" --nj ${nj} --do_delta ${do_delta} \
 		data/${train_dev}/feats.scp data/${train_set}/cmvn.ark exp/dump_feats/dev ${feat_dt_dir}
 	recog_set2="dev-clean dev-other"
@@ -219,6 +220,9 @@ mkdir -p ${expdir}
 
 if [ ${stage} -le 4 ] && [ ${stop_stage} -ge 4 ]; then
     echo "stage 4: Network Training"
+	git log --pretty=format:'%H' -1 | cat > ${expdir}/git.hash
+	cat $0 > ${expdir}/run.scrpt
+	cat ${train_config} > ${expdir}/train.conf
     ${cuda_cmd} --gpu ${ngpu} ${expdir}/train.log \
         asr_train.py \
         --config ${train_config} \
