@@ -96,7 +96,7 @@ if [ ${stage} -le 1 ] && [ ${stop_stage} -ge 1 ]; then
 
     # Generate the fbank features; by default 80-dimensional fbanks with pitch on each frame
 	#for x in dev_clean test_clean dev_other test_other train_clean_100; do
-	for x in dev-clean test-clean dev-other test-other train_clean_100; do
+	for x in dev_clean test_clean dev_other test_other train_clean_100; do
 		steps/make_fbank_pitch.sh --cmd "$train_cmd" --nj ${nj} --write_utt2num_frames true \
 			data/${x} exp/make_fbank/${x} ${fbankdir}
 		utils/fix_data_dir.sh data/${x}
@@ -129,8 +129,7 @@ if [ ${stage} -le 1 ] && [ ${stop_stage} -ge 1 ]; then
 		data/${train_set}/feats.scp data/${train_set}/cmvn.ark exp/dump_feats/train ${feat_tr_dir}
 	dump.sh --cmd "$train_cmd" --nj ${nj} --do_delta ${do_delta} \
 		data/${train_dev}/feats.scp data/${train_set}/cmvn.ark exp/dump_feats/dev ${feat_dt_dir}
-	recog_set2="dev-clean dev-other"
-    for rtask in ${recog_set2}; do
+    for rtask in ${recog_set}; do
         feat_recog_dir=${dumpdir}/${rtask}/delta${do_delta}; mkdir -p ${feat_recog_dir}
         dump.sh --cmd "$train_cmd" --nj ${nj} --do_delta ${do_delta} \
             data/${rtask}/feats.scp data/${train_set}/cmvn.ark exp/dump_feats/recog/${rtask} \
